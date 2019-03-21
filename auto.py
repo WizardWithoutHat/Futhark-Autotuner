@@ -23,15 +23,15 @@ import numpy as np
 
 from collections import OrderedDict, defaultdict
 
-# Simple way of calling a shell command, and wait for it to finish. 
+# Simple way of calling a shell command, and wait for it to finish.
 # Could maybe be extended if needed.
 def call_program(cmd):
     process = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE)
     retval = process.wait()
-    
+
     return process
 
-# Perform all the preparation from the original Auto Tuner 
+# Perform all the preparation from the original Auto Tuner
 # Gets all values that thresholds are compared against (stored in "thresholds" and "values")
 # Gets the names of all the datasets involved in tuning (stored in "datasets")
 # Computes a "branch tree" of versions from threshold dependencies (stored in "branch_tree")
@@ -55,7 +55,7 @@ def extract_thresholds_and_values(program):
 
     with tempfile.NamedTemporaryFile() as json_tmp:
         # extract comparison values by running a single run of the benchmark.
-        # Saves important info to a temporary JSON file. 
+        # Saves important info to a temporary JSON file.
         val_cmd = 'futhark bench {} --exclude-case=notune --backend=opencl --skip-compilation --pass-option=-L --runs=1 --json={}'.format(
             program, json_tmp.name)
         val_res = call_program(val_cmd)
@@ -117,7 +117,7 @@ def extract_thresholds_and_values(program):
               False : [{'name' : 'end', 'id' : i + 1}]}
         return d
 
-    # Function for walking a tree and growing it. 
+    # Function for walking a tree and growing it.
     # Used to create the branch-tree, from the branch_dicts.
     def walk_tree_and_add_param(start, name, deps, i):
         start_copy = list(start)
@@ -207,10 +207,10 @@ def futhark_bench_cmd(cfg, json, times):
 
 # Quick command to calculate the current timeout, based on the longest "best" time so far. ( + 1 second, since Futhark is very weird)
 def compute_timeout(best):
-    return int(np.amax(best.values())*20 / 1000000.0) + 2 # Multiplied by 10 because that is the number of runs in benchmarks.
+    return int((np.amax(best.values()))*10 / 1000000.0) + int(overhead) # Multiplied by 10 because that is the number of runs in benchmarks.
 
-    
-#============#    
+
+#============#
 # THE SCRIPT #
 #============#=========================================================#
 #                                                                      #
@@ -238,9 +238,9 @@ compile_res = call_program(compile_cmd)
 print('Done.')
 
 # Run the above function to find:
-# Names of all datasets and thresholds. 
+# Names of all datasets and thresholds.
 # Values of all threshold comparisons.
-# Branch-tree information for dependencies between thresholds. 
+# Branch-tree information for dependencies between thresholds.
 (datasets, thresholds, values, branch_tree) = extract_thresholds_and_values(program)
 
 # Potential debug-printing, not used usually.
@@ -276,13 +276,13 @@ print('Done.')
 # Function to extract names of thresholds in just one branch.
 def extract_names(tree_list):
     all_names = []
-    
+
     # Since there can be multiple independent branches, each is dealt with independently.
     for tree in tree_list:
         names = extract_names_helper(all_names, tree)
         for name in names:
             # Does not add duplicate names.
-            if name not in all_names: 
+            if name not in all_names:
                 all_names.append(name)
 
     return all_names
@@ -298,7 +298,7 @@ def extract_names_helper(names, tree):
         return names
 
     # If this threshold leads to potentially multiple more paths,
-    # recursively check all paths for names. 
+    # recursively check all paths for names.
     for branch in tree[False]:
         res = extract_names_helper(names[:], branch)
         for name in res:
@@ -308,8 +308,8 @@ def extract_names_helper(names, tree):
 
     return names
 
-# Utility function to find the depth of a branch. 
-# Not always the best to use though, as depth is usually 
+# Utility function to find the depth of a branch.
+# Not always the best to use though, as depth is usually
 # better determined by len(extract_names(branch)) instead.
 def depth_of_branch(tree, depth):
     if tree['name'] == 'end':
@@ -317,10 +317,10 @@ def depth_of_branch(tree, depth):
     else:
         return depth_of_branch(tree[False][0],depth + 1)
 
-# Function to extract all "versions" for a branch. 
-# One version is a list of booleans, each corresponding to a threshold. 
-# The resulting list-of-lists has one list pr. code-version possible in that branch. 
-# This means running all of those "versions" results in exhaustive search. 
+# Function to extract all "versions" for a branch.
+# One version is a list of booleans, each corresponding to a threshold.
+# The resulting list-of-lists has one list pr. code-version possible in that branch.
+# This means running all of those "versions" results in exhaustive search.
 def extract_versions(depth, tree):
     versions = []
 
@@ -389,8 +389,6 @@ def version_to_string(version):
         res += char
     return res
 
-    
-    
 # Base Version will be mutated for each branch fixed.
 # It is used to have all other branches fixed while working on one.
 baseVersion = [False for x in threshold_names]
@@ -407,11 +405,21 @@ with tempfile.NamedTemporaryFile() as json_tmp:
 
     print("Starting first Benchmark")
     bench_cmd = futhark_bench_cmd(conf, json_tmp, None)
+
+    wall_start = time.time()
     call_program(bench_cmd)
+    wall_duration = time.time() - wall_start
 
     json_data = json.load(json_tmp)
 
     base_datasets = json_data[program]['datasets']
+
+    dataset_runtimes = [ sum(base_datasets[dataset]['runtimes']) / 1000000.0
+                            for dataset in base_datasets ]
+
+    overhead = (wall_duration - (sum(dataset_runtimes) / len(dataset_runtimes))) + 1
+    print("Overhead: ")
+    print(overhead)
 
     best_times = {}
     best_versions = {}
@@ -419,18 +427,18 @@ with tempfile.NamedTemporaryFile() as json_tmp:
 
     for dataset in base_datasets:
         runtime = int(np.mean(base_datasets[dataset]['runtimes']))
-        best_times[dataset] = runtime 
+        best_times[dataset] = runtime
         best_versions[dataset] = [False for x in threshold_names]
         all_version_times[version_to_string(baseVersion)][dataset] = runtime
 
 
 # Little trick to allow for nice printing in some cases.
 def backspace(n):
-    sys.stdout.write((b'\x08' * n).decode()) # use \x08 char to go back   
+    sys.stdout.write((b'\x08' * n).decode()) # use \x08 char to go back
     sys.stdout.write(' ' * n)
     sys.stdout.write((b'\x08' * n).decode())
 
-# Sorted list by branch-depth. 
+# Sorted list by branch-depth.
 # Chosen based on the heuristic that deeper branches allow for more impactful tuning.
 order = [(len(extract_names([branch_tree[i]])),i) for i, branch in enumerate(branch_tree)]
 deepest_first_order = sorted(order, key=lambda x: x[0])[::-1]
@@ -439,7 +447,7 @@ deepest_first_order = sorted(order, key=lambda x: x[0])[::-1]
 num_versions = 0
 for d, i in order:
     num_versions += len(extract_versions(d, branch_tree[i]))
-current_version_num = 1    
+current_version_num = 1
 
 #======================#
 # STRATEGY EXPLANATION #
@@ -451,7 +459,7 @@ current_version_num = 1
 #=============================================================================================#
 
 for depth, i in deepest_first_order:
-    
+
     # Calculate the number of thresholds before and after this branch.
     depth_before = 0
     for j in range(i):
@@ -467,8 +475,8 @@ for depth, i in deepest_first_order:
 
     # Initialise "best" version as all-false with an impossible time.
     best_branch_version = [False for x in range(depth)]
-    best_branch_time = 999999999999999  
-    
+    best_branch_time = 999999999999999
+
     # Loop over every code-version in this branch.
     for j, current_version in enumerate(branch_versions[::-1]):
         status_string = "[{}s] For branch {} trying version {} / {}: {}\n".format(int(time.time() - start), i, current_version_num, num_versions, current_version)
@@ -476,18 +484,18 @@ for depth, i in deepest_first_order:
         sys.stdout.flush()
         #backspace(len(status_string))
         current_version_num += 1
-        
+
         # Modify the version to change just the branch we are working on.
         version = base_before + current_version + base_after
-        
+
         # If this exact version has already been run, skip it.
         if(version_to_string(version) in all_version_times):
             continue
 
         # Change the boolean-representation into actual threshold values.
         conf = {}
-        
-        # If a threshold is set as True, we use 1. 
+
+        # If a threshold is set as True, we use 1.
         # If a threshold is set as False, we use the largest comparison-value seen in the preparation stage, + 1.
         # This should mean all datasets reach the same codeversion for this run.
         bool_to_int = [1 if v else max_comparison + 1 for v in version]
@@ -511,13 +519,13 @@ for depth, i in deepest_first_order:
 
             results = json_data[program]['datasets']
 
-            # Time taken is going to be relative to each dataset. 
-            # This is done by comparing every runtime to the baseline version for this branch. 
-            # Percentage-improvement is added to the total_time, meaning all datasets are equally important. 
+            # Time taken is going to be relative to each dataset.
+            # This is done by comparing every runtime to the baseline version for this branch.
+            # Percentage-improvement is added to the total_time, meaning all datasets are equally important.
             # (This might slightly favour small-runtime datasets, as deviations mean more)
             total_time = 0
-            
-            # Record every dataset's runtime, and store it. 
+
+            # Record every dataset's runtime, and store it.
             for dataset in results:
                 try:
                     runtime = int(np.mean(results[dataset]['runtimes']))
@@ -526,10 +534,12 @@ for depth, i in deepest_first_order:
                     #print("Dataset {} ran in {}, compared to base {}".format(dataset, runtime, all_version_times[version_to_string(baseVersion)][dataset]))
                     total_time +=  runtime / all_version_times[version_to_string(baseVersion)][dataset] * 100
                     if runtime < best_times[dataset]:
+                        print("Considered new best for dataset {} at {}".format(dataset, runtime))
                         best_times[dataset] = runtime
                         best_versions[dataset] = version
                 except:
                     #It timed out on this dataset
+                    #print("Timed out on dataset {}".format(dataset))
                     total_time += 2.0
 
             # Keep track of the best version for this branch.
@@ -539,12 +549,12 @@ for depth, i in deepest_first_order:
 
     # Modify the base version to use the new "better" version.
     baseVersion = base_before + best_branch_version + base_after
-    
+
     #print("Best Branch choice: {}".format(best_branch_version))
     #print("New Base Version:")
     #print(baseVersion)
 
-# Report the "final" base-version, which is NOT the final 
+# Report the "final" base-version, which is NOT the final
 print("REPRODUCE FINAL BASE-VERSION:")
 baseConf = {}
 bool_to_int = [1 if v else max_comparison + 1 for v in baseVersion]
@@ -576,7 +586,6 @@ print("Took {}s".format(time.time() - start))
 # This is done in a similar way to in Stage 2, i.e. going through each branch independently.            #
 # In the end, the final thresholds for each is reported.                                                #
 #=======================================================================================================#
-
 
 # Start by initializing each threshold-range.
 threshold_ranges = {}
@@ -626,7 +635,7 @@ for name in threshold_names:
     merged_ranges[name]['min'] = 0
     merged_ranges[name]['max'] = max_comparison + 1
 
-# These are simply the maximum and minimum of all threshold-values, across all datasets.    
+# These are simply the maximum and minimum of all threshold-values, across all datasets.
 for ranges in threshold_ranges.values():
     for name in threshold_names:
         merged_ranges[name]['min'] = max(merged_ranges[name]['min'], ranges[name]['min'])
@@ -634,6 +643,8 @@ for ranges in threshold_ranges.values():
 
 print("Merged Ranges")
 print(merged_ranges)
+
+
 
 # Prepare the final configuration (and baseline for conflict-resolution) and conflict-dict.
 final_conf = {}
@@ -648,16 +659,16 @@ for name in threshold_names:
         conflicts[name] = []
         conflicts[name].append((name, merged_ranges[name]['max']))
         final_conf[name] = merged_ranges[name]['min']
-        conflicts[name].append((name, merged_ranges[name]['min']))             
-    else: 
+        conflicts[name].append((name, merged_ranges[name]['min']))
+    else:
         final_conf[name] = merged_ranges[name]['max']
 
-        
 
-# Conflict Resolution Strategy: 
+
+# Conflict Resolution Strategy:
 # Loop over each branch, like in Stage 2
-# Check which conflicts lie in this branch. 
-# Create all different tie-breaking versions in that branch. (Meaning we only redo important benchmarks) 
+# Check which conflicts lie in this branch.
+# Create all different tie-breaking versions in that branch. (Meaning we only redo important benchmarks)
 # Test each, measured by total runtime, and use the best one as final value.
 
 # Creating versions:
@@ -668,7 +679,7 @@ def combinations(lists):
     a = lists[0]
     if len(lists) == 1:
         return [[a[0]], [a[1]]]
-    else: 
+    else:
         for option in a:
             next = combinations(lists[1:])
             for comb in next:
@@ -679,41 +690,45 @@ def combinations(lists):
 if len(conflicts) != 0:
     print("Encountered the following conflicts:")
     print(conflicts)
-    
+
     # Base-version, as before, but this time already using the "valid" thresholds.
     base_conf = dict(final_conf)
-    
+
     for depth, i in deepest_first_order:
         branch = branch_tree[i]
         branch_names = extract_names([branch])
-        
+
         # Extract possible "options" for each conflict-threshold
-        options = []     
-        for name, val in conflicts.items(): 
+        options = []
+        for name, val in conflicts.items():
             if name in branch_names:
                 options.append(val)
-                
+
+        if len(options) == 0:
+            continue
+
         # Use those options to extract "versions"
+        print("Options: {}".format(options))
         branch_combinations = combinations(options)
-        
+
         # Initialize best-parameters.
         branch_base_time = {}
-        best_branch_time = 0 
-        
+        best_branch_time = 0
+
         print("[{}s] Breaking conflicts in Branch {}, found {} conflicts leading to {} combinations.".format(int(time.time() - start), i, len(options), len(branch_combinations)))
-        
+
         # Run each "version" to find the best one.
-        for j, version in enumerate(branch_combinations):            
+        for j, version in enumerate(branch_combinations):
             print("[{}s] Breaking conflicts {} / {}".format(int(time.time() - start), j + 1, len(branch_combinations)))
-            conf = dict(final_conf) #Copy the "fixed" values 
-            
+            conf = dict(final_conf) #Copy the "fixed" values
+
             # Update the specific conflict-thresholds to this versions' values.
             for (name, val) in version:
                 conf[name] = val
-            
+
             # Run the benchmark.
             with tempfile.NamedTemporaryFile() as json_tmp:
-                bench_cmd = futhark_bench_cmd(conf, json_tmp, None)
+                bench_cmd = futhark_bench_cmd(conf, json_tmp, best_times)
 
                 call_program(bench_cmd)
 
@@ -724,33 +739,33 @@ if len(conflicts) != 0:
                 # This time using total aggregate runtime.
                 # This was chosen since earlier we optimized based on datasets, and here we don't.
                 # (Aggregate runtime favours longer-running datasets)
-                total_time = 0 
+                total_time = 0
                 for dataset in results:
                     try:
                         runtime = int(np.mean(results[dataset]['runtimes']))
-                        
+
                         if j == 0:
                             best_branch_time += runtime + 5
-                            
+
                         total_time +=  runtime
-                        
+
                         print("[{}s] Dataset {} ran in {}".format(int(time.time() - start), dataset, runtime))
-              
+
                     except:
                         # It timed out on this dataset
                         # This means I add the total "best" to this one, as it can't be better anyway.
                         total_time += best_branch_time
-                        
+
             # Update "best" version.
             if total_time < best_branch_time:
                 best_branch_time = total_time
-                best_branch = version 
-    
+                best_branch = version
+
         # When all have been tested, add the chosen conflict-threshold values to the final configuration.
         for name, val in best_branch:
             final_conf[name] = val
 
-# Report the results.                    
+# Report the results.
 print("FINAL BENCH COMMAND:")
 print(futhark_bench_cmd(final_conf, None, None))
 
@@ -768,8 +783,8 @@ print(futhark_bench_cmd(final_conf, None, None))
 #======#
 # SRAD #
 #======#
-PROBLEM: 
-With the current train-set, I can NOT predict test-set. 
+PROBLEM:
+With the current train-set, I can NOT predict test-set.
 What do I do now, when I can't easily create new datasets?
 
 #=============#
