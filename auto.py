@@ -389,29 +389,6 @@ def version_to_string(version):
         res += char
     return res
 
-def get_base_timeout(self):
-    """
-    Run a benchmark without specifying thresholds,
-    in order to use the runtime of the slowest dataset
-    as timeout-value, plus the (estimated) overhead of initialisation.
-    """
-    with tempfile.NamedTemporaryFile() as json_tmp:
-          base_cmd = '{} bench {} -e {} --exclude-case=notune --backend=opencl --skip-compilation --json={}'.format(
-            self.args.futhark, self.program_name(), self.args.entry_point, json_tmp.name)
-          wall_start = time.time()
-          base_res = self.call_critical_program(base_cmd)
-          wall_duration = time.time() - wall_start
-
-          json_data = json.load(json_tmp)
-          base_datasets = json_data[self.program_key_name()]['datasets']
-          high = 0
-          dataset_runtimes = [ sum(base_datasets[dataset]['runtimes']) / 1000000.0
-                               for dataset in base_datasets ]
-          high = max(dataset_runtimes)
-          overhead = (wall_duration - sum(dataset_runtimes)) / len(dataset_runtimes)
-
-    return int(math.ceil(high + overhead)) + 1 # Extra second for luck.
-
 # Base Version will be mutated for each branch fixed.
 # It is used to have all other branches fixed while working on one.
 baseVersion = [False for x in threshold_names]
@@ -554,18 +531,15 @@ for depth, i in deepest_first_order:
                     runtime = int(np.mean(results[dataset]['runtimes']))
                     #print("I didn't time out!")
                     all_version_times[version_to_string(version)][dataset] = runtime
-                    if dataset ==  u'data/D6.in':
-                        print("Dataset {} ran in {}, compared to base {}".format(dataset, runtime, all_version_times[version_to_string(baseVersion)][dataset]))
+                    #print("Dataset {} ran in {}, compared to base {}".format(dataset, runtime, all_version_times[version_to_string(baseVersion)][dataset]))
                     total_time +=  runtime / all_version_times[version_to_string(baseVersion)][dataset] * 100
                     if runtime < best_times[dataset]:
-                        if dataset ==  u'data/D6.in':
-                            print("Considered new best for dataset {} at {}".format(dataset, runtime))
+                        print("Considered new best for dataset {} at {}".format(dataset, runtime))
                         best_times[dataset] = runtime
                         best_versions[dataset] = version
                 except:
                     #It timed out on this dataset
-                    if dataset ==  u'data/D6.in':
-                        print("Timed out on dataset {}".format(dataset))
+                    #print("Timed out on dataset {}".format(dataset))
                     total_time += 2.0
 
             # Keep track of the best version for this branch.
@@ -612,7 +586,6 @@ print("Took {}s".format(time.time() - start))
 # This is done in a similar way to in Stage 2, i.e. going through each branch independently.            #
 # In the end, the final thresholds for each is reported.                                                #
 #=======================================================================================================#
-
 
 # Start by initializing each threshold-range.
 threshold_ranges = {}
@@ -670,6 +643,8 @@ for ranges in threshold_ranges.values():
 
 print("Merged Ranges")
 print(merged_ranges)
+
+
 
 # Prepare the final configuration (and baseline for conflict-resolution) and conflict-dict.
 final_conf = {}
@@ -729,7 +704,11 @@ if len(conflicts) != 0:
             if name in branch_names:
                 options.append(val)
 
+        if len(options) == 0:
+            continue
+
         # Use those options to extract "versions"
+        print("Options: {}".format(options))
         branch_combinations = combinations(options)
 
         # Initialize best-parameters.
