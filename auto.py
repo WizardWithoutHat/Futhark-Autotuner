@@ -187,27 +187,29 @@ def extract_thresholds_and_values(program):
 
 # Command to compute bench command to call using sys.
 # (From old AutoTuner)
-def futhark_bench_cmd(cfg, json, times):
+def futhark_bench_cmd(cfg, json, times, tile):
     def sizeOption(size):
         return '--pass-option --size={}={}'.format(size, cfg[size])
     size_options = ' '.join(map(sizeOption, cfg.keys()))
-
-    if json == None and times == None:
-        return 'futhark bench --skip-compilation {} --pass-option --default-tile-size=16 --exclude-case=notune {}'.format(
-            program, size_options)
-    if json == None:
-        return 'futhark bench --skip-compilation {} --pass-option --default-tile-size=16 --exclude-case=notune {} --timeout={}'.format(
-            program, size_options, compute_timeout(times))
-    if times == None:
-        return 'futhark bench --skip-compilation {} --pass-option --default-tile-size=16 --exclude-case=notune {} --json={}'.format(
-            program, size_options, json.name)
-    else:
-        return 'futhark bench --skip-compilation {} --pass-option --default-tile-size=16 --exclude-case=notune --json={} --timeout={} {}'.format(
-            program, json.name, compute_timeout(times), size_options)
+    
+    cmd = 'futhark bench --skip-compilation --exclude-case=notune {} '.format(program)
+    
+    if json != None:
+        cmd += '--json={} '.format(json.name)
+       
+    if times != None: 
+        cmd += '--timeout={} '.format(compute_timeout(times))
+        
+    if tile != None:
+        cmd += '--pass-option --default-tile-size={} '.format(str(tile))
+       
+    cmd += size_options
+    
+    return cmd
 
 # Quick command to calculate the current timeout, based on the longest "best" time so far. ( + 1 second, since Futhark is very weird)
 def compute_timeout(best):
-    return int((np.amax(best.values()))*10 / 1000000.0) + int(overhead) # Multiplied by 10 because that is the number of runs in benchmarks.
+    return int((np.amax(best.values()) * 10) / 1000000.0) + int(overhead) # Multiplied by 10 because that is the number of runs in benchmarks.
 
 
 #============#
@@ -404,7 +406,7 @@ with tempfile.NamedTemporaryFile() as json_tmp:
 
 
     print("Starting first Benchmark")
-    bench_cmd = futhark_bench_cmd(conf, json_tmp, None)
+    bench_cmd = futhark_bench_cmd(conf, json_tmp, None, None)
 
     wall_start = time.time()
     call_program(bench_cmd)
@@ -511,7 +513,7 @@ for depth, i in deepest_first_order:
 
         # With a temporary JSON file, run the benchmarking for this version.
         with tempfile.NamedTemporaryFile() as json_tmp:
-            bench_cmd = futhark_bench_cmd(conf, json_tmp, best_times)
+            bench_cmd = futhark_bench_cmd(conf, json_tmp, best_times, None)
 
             call_program(bench_cmd)
 
@@ -531,7 +533,7 @@ for depth, i in deepest_first_order:
                     runtime = int(np.mean(results[dataset]['runtimes']))
                     #print("I didn't time out!")
                     all_version_times[version_to_string(version)][dataset] = runtime
-                    #print("Dataset {} ran in {}, compared to base {}".format(dataset, runtime, all_version_times[version_to_string(baseVersion)][dataset]))
+                    print("Dataset {} ran in {}, compared to base {}".format(dataset, runtime, all_version_times[version_to_string(baseVersion)][dataset]))
                     total_time +=  runtime / all_version_times[version_to_string(baseVersion)][dataset] * 100
                     if runtime < best_times[dataset]:
                         print("Considered new best for dataset {} at {}".format(dataset, runtime))
@@ -560,7 +562,7 @@ baseConf = {}
 bool_to_int = [1 if v else max_comparison + 1 for v in baseVersion]
 for name, val in zip(threshold_names, bool_to_int):
     conf[name] = val
-print(futhark_bench_cmd(conf, None, None))
+print(futhark_bench_cmd(conf, None, None, None))
 
 print("Finished the benchmarks!")
 print("Best-Times: ")
@@ -587,6 +589,10 @@ print("Took {}s".format(time.time() - start))
 # In the end, the final thresholds for each is reported.                                                #
 #=======================================================================================================#
 
+# Prepare the final configuration (and baseline for conflict-resolution) and conflict-dict.
+final_conf = {}
+conflicts = {}
+
 # Start by initializing each threshold-range.
 threshold_ranges = {}
 for dataset in datasets:
@@ -596,6 +602,7 @@ for dataset in datasets:
         threshold_ranges[dataset][name]['min'] = 0
         threshold_ranges[dataset][name]['max'] = max_comparison + 1
 
+print("Names: {}".format(threshold_names))
 
 # Go through each datasets best version, and narrow down the possible values it wants.
 for dataset, version in best_versions.items():
@@ -605,25 +612,59 @@ for dataset, version in best_versions.items():
     for i, thresh in enumerate(version):
         # Extract the name and the value it is compared to in this dataset's run.
         name = threshold_names[i]
-        param = thresholds[dataset][name]
-        if(len(param) == 1):
-            val = param.pop()
-            param.add(val)
-            param = val
-        else:
-            print("LENGTH OF SET WASN'T 1!!!")
+        threshold_set = thresholds[dataset][name]
 
-        # Use that value as the new min/max depending on whether this threshold was true or not.
-        if(thresh):
-            # This was set to True in the configuration
-            # This means, t < Param had to be correct.
-            threshold_ranges[dataset][name]['min'] = 0
-            threshold_ranges[dataset][name]['max'] = param - 1
+        if(len(threshold_set) == 1):
+            # Only a single parameter comparison: Easy!
+            val = threshold_set.pop()
+            threshold_set.add(val)
+
+            # Use that value as the new min/max depending on whether this threshold was true or not.
+            if(thresh):
+                # This was set to True in the configuration
+                # This means, t < Param had to be correct.
+                threshold_ranges[dataset][name]['min'] = 0
+                threshold_ranges[dataset][name]['max'] = val - 1
+            else:
+                # This comparison was False in the configuration
+                # This means, t > Param had to be correct.
+                threshold_ranges[dataset][name]['min'] = val + 1
+                threshold_ranges[dataset][name]['max'] = max_comparison + 1
         else:
-            # This comparison was False in the configuration
-            # This means, t > Param had to be correct.
-            threshold_ranges[dataset][name]['min'] = param + 1
-            threshold_ranges[dataset][name]['max'] = max_comparison + 1
+            print("Name {} have multiple options for dataset {}: {}".format(name, dataset, threshold_set))
+            # Consider this a "Conflict" between a lot of possible values.
+            # Add them to the conflict list, and add the "max" value as the chosen "default" for testing later.
+            processed = []
+
+            while len(threshold_set) != 0:
+                # Pop a candidate value.
+                val = threshold_set.pop()
+                processed.append(val)
+
+            processed = sorted(processed)[::-1]
+
+
+            if name not in conflicts:
+                conflicts[name] = []
+
+            # Re-add everything in case it is needed later
+            for element in processed:
+                threshold_set.add(element)
+                if (name, element) not in conflicts[name]:
+                    conflicts[name].append((name, element))
+
+            # Use maximum as "default"
+            max_val = processed[0]
+            #conflicts[name].append((name, max_val + 1)) #Represents a complete False
+            if name in final_conf:
+                final_conf[name] = max(max_val + 1, final_conf[name])
+            else:
+                final_conf[name] = max_val + 1
+
+            # Re-add the data, so that it isn't changed (in case it is needed later)
+            thresholds[dataset][name] = threshold_set
+
+
 
 print("Threshold Ranges")
 print(threshold_ranges)
@@ -638,6 +679,9 @@ for name in threshold_names:
 # These are simply the maximum and minimum of all threshold-values, across all datasets.
 for ranges in threshold_ranges.values():
     for name in threshold_names:
+        if name in conflicts:
+            continue
+
         merged_ranges[name]['min'] = max(merged_ranges[name]['min'], ranges[name]['min'])
         merged_ranges[name]['max'] = min(merged_ranges[name]['max'], ranges[name]['max'])
 
@@ -645,17 +689,15 @@ print("Merged Ranges")
 print(merged_ranges)
 
 
-
-# Prepare the final configuration (and baseline for conflict-resolution) and conflict-dict.
-final_conf = {}
-conflicts = {}
-
 # Check each threshold, to see if it was a conflict or not.
 for name in threshold_names:
+    if name in conflicts:
+        continue
+
     if(merged_ranges[name]['max'] < merged_ranges[name]['min']):
         # A conflict has occured!
         # Add the two possible values to the conflict dict.
-        print("Conflict encountered in {}: {} vs {}".format(name, merged_ranges[name]['min'], merged_ranges[name]['max']))
+        #print("Conflict encountered in {}: {} vs {}".format(name, merged_ranges[name]['min'], merged_ranges[name]['max']))
         conflicts[name] = []
         conflicts[name].append((name, merged_ranges[name]['max']))
         final_conf[name] = merged_ranges[name]['min']
@@ -664,6 +706,11 @@ for name in threshold_names:
         final_conf[name] = merged_ranges[name]['max']
 
 
+if len(conflicts) != 0:
+    print("Conflicts encountered in:")
+    for name, options in conflicts.items():
+        pplist = [val for (n, val) in options]
+        print("{} with these options: {}".format(name, pplist))
 
 # Conflict Resolution Strategy:
 # Loop over each branch, like in Stage 2
@@ -686,88 +733,180 @@ def combinations(lists):
                 versions.append([option] + comb)
         return versions
 
+list_of_confs = []        
+base_conf = dict(final_conf)        
+        
 # Only perform this step if there are conflicts to fix.
 if len(conflicts) != 0:
     print("Encountered the following conflicts:")
     print(conflicts)
+    
+    best_tile = 16
+    best_tile_time = 99999999999999999999
 
-    # Base-version, as before, but this time already using the "valid" thresholds.
-    base_conf = dict(final_conf)
-
+    tiles = [4, 8, 16, 32, 64, 256, 1024, 4096]
+    
+    final_conf = dict(base_conf)
+    
     for depth, i in deepest_first_order:
         branch = branch_tree[i]
         branch_names = extract_names([branch])
 
         # Extract possible "options" for each conflict-threshold
         options = []
+        numOptions = 0
         for name, val in conflicts.items():
             if name in branch_names:
-                options.append(val)
+                numOptions += len(val)
+                sortedVals = sorted(val, key=lambda x: x[1])
+                sortedVals.append((name, sortedVals[-1][1] + 1))
+                options.append(sortedVals[::-1])
 
         if len(options) == 0:
             continue
 
         # Use those options to extract "versions"
         print("Options: {}".format(options))
-        branch_combinations = combinations(options)
+        #branch_combinations = combinations(options)
+
+        branch_versions = extract_versions(len(extract_names([branch_tree[i]])), branch_tree[i])[::-1]
 
         # Initialize best-parameters.
-        branch_base_time = {}
         best_branch_time = 0
 
-        print("[{}s] Breaking conflicts in Branch {}, found {} conflicts leading to {} combinations.".format(int(time.time() - start), i, len(options), len(branch_combinations)))
+        print("[{}s] Breaking conflicts in Branch {}, found {} conflicts over {} thresholds.".format(int(time.time() - start), i, numOptions,len(options)))
 
         # Run each "version" to find the best one.
-        for j, version in enumerate(branch_combinations):
-            print("[{}s] Breaking conflicts {} / {}".format(int(time.time() - start), j + 1, len(branch_combinations)))
+        for j, version in enumerate(branch_versions):
+            # First, find the True threshold, indicating the current tuning parameter
+            position = -1
+            for i, bool in enumerate(version):
+                if bool:
+                    position = i
+
+            if position == -1:
+                # All was false!
+                # We have nothing to tune here, so we don't.
+                continue
+
+            print("[{}s] Finding best value for threshold {}".format(int(time.time() - start), branch_names[position]))
+
+            # Find the index of this threshold in Options
+            optionPosition = -1
+            for k in range(len(version)):
+                if options[k][0][0] == branch_names[position]:
+                    optionPosition = k
+                    break
+
+
             conf = dict(final_conf) #Copy the "fixed" values
 
-            # Update the specific conflict-thresholds to this versions' values.
-            for (name, val) in version:
+            best_threshold_value = 0
+            best_threshold_time  = 0
+
+            for k, current_option in enumerate(options[optionPosition]):
+                name, val = current_option
+                print("[{}s] Trying value {} for threshold {}".format( int(time.time() - start), val, name ))
+
+                # Update the specific conflict-threshold's value to this possible option.
                 conf[name] = val
 
-            # Run the benchmark.
-            with tempfile.NamedTemporaryFile() as json_tmp:
-                bench_cmd = futhark_bench_cmd(conf, json_tmp, best_times)
+                # Run the benchmark.
+                with tempfile.NamedTemporaryFile() as json_tmp:
+                    if i == 0:
+                        bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
+                    else:
+                        bench_cmd = futhark_bench_cmd(conf, json_tmp, best_times, 16)
 
-                call_program(bench_cmd)
 
-                json_data = json.load(json_tmp)
+                    call_program(bench_cmd)
 
-                results = json_data[program]['datasets']
+                    json_data = json.load(json_tmp)
 
-                # This time using total aggregate runtime.
-                # This was chosen since earlier we optimized based on datasets, and here we don't.
-                # (Aggregate runtime favours longer-running datasets)
-                total_time = 0
-                for dataset in results:
-                    try:
-                        runtime = int(np.mean(results[dataset]['runtimes']))
+                    results = json_data[program]['datasets']
 
-                        if j == 0:
-                            best_branch_time += runtime + 5
+                    # This time using total aggregate runtime.
+                    # This was chosen since earlier we optimized based on datasets, and here we don't.
+                    # (Aggregate runtime favours longer-running datasets)
+                    total_time = 0
+                    for dataset in results:
+                        try:
+                            runtime = int(np.mean(results[dataset]['runtimes']))
 
-                        total_time +=  runtime
+                            if k == 0: #To help initial run get started, guaranteeing later if-statement is true
+                                best_threshold_time += runtime + 5
+                                best_times[dataset] = runtime
 
-                        print("[{}s] Dataset {} ran in {}".format(int(time.time() - start), dataset, runtime))
+                            total_time +=  runtime
 
-                    except:
-                        # It timed out on this dataset
-                        # This means I add the total "best" to this one, as it can't be better anyway.
-                        total_time += best_branch_time
+                            if best_times[dataset] > runtime:
+                                best_times[dataset] = runtime
 
-            # Update "best" version.
-            if total_time < best_branch_time:
-                best_branch_time = total_time
-                best_branch = version
+                            print("[{}s] Dataset {} ran in {}".format(int(time.time() - start), dataset, runtime))
 
-        # When all have been tested, add the chosen conflict-threshold values to the final configuration.
-        for name, val in best_branch:
-            final_conf[name] = val
+                        except:
+                            # It timed out on this dataset
+                            # This means I add the total "best" to this one, as it can't be better anyway.
+                            total_time += best_times[dataset] * 2
 
+                # Update "best" overall version.
+                if total_time < best_branch_time:
+                    best_branch_time = total_time
+                    best_branch = conf
+
+                # Update "best" current threshold value
+                if total_time < best_threshold_time:
+                    print("Current best {} is {} with {}".format(name, val, total_time))
+                    best_threshold_time = total_time
+                    best_threshold_value = val
+                    
+
+            final_conf[name] = best_threshold_value
+        
+    print("Starting Tile-Size Calibration: {}".format(tiles))
+    for tile in tiles:  
+        print("Trying Tile: {}".format(tile))
+        with tempfile.NamedTemporaryFile() as json_tmp:
+            bench_cmd = futhark_bench_cmd(conf, json_tmp, None, tile)
+            call_program(bench_cmd)
+
+            json_data = json.load(json_tmp)
+            results = json_data[program]['datasets']            
+            total_time = 0
+
+            for dataset in results:
+                try:
+                    runtime = int(np.mean(results[dataset]['runtimes']))
+                    total_time +=  runtime
+                    
+                    print("[{}s] Dataset {} ran in {} with tile-size {}".format(int(time.time() - start), dataset, runtime, tile))
+
+                    if best_times[dataset] > runtime:
+                        best_times[dataset] = runtime
+
+
+                except:
+                    # It timed out on this dataset
+                    # This means I add the total "best" to this one, as it can't be better anyway.
+                    total_time += best_times[dataset] * 2
+            
+            if total_time < best_tile_time:
+                best_tile = tile 
+                best_tile_time = total_time
+        
+print("Best Tile: {}".format(best_tile))
+ 
 # Report the results.
 print("FINAL BENCH COMMAND:")
-print(futhark_bench_cmd(final_conf, None, None))
+print(futhark_bench_cmd(final_conf, None, None, best_tile))
+
+# ##  # #
+# REMEMBER TODO
+# Something about "best_branch" is off, currently set as conf, maybe unused entirely??? It probably should be used+??
+#
+# Try going through the SORTED list of option-values instead?
+#
+# Change the time recording from Total Time to Percentage Time
 
 
 """
@@ -775,9 +914,31 @@ print(futhark_bench_cmd(final_conf, None, None))
 # NOTES SECTION #
 #===============#
 
+#===========#
+# TILE SIZE #
+#===========#
+
+Ask COSMIN if it is possible to have the compiler pinpoint which "branch" uses Tile Sizes?
+
+
 #======================#
 # VARIANT-SIZE TESTING #
 #======================#
+UNTUNED:
+dataset [2048][2048]f32 [2048][2048]f32:  517288.20s (avg. of 10 runs; RSD: 0.00)
+dataset [1024][1024]f32 [1024][1024]f32:  120666.90s (avg. of 10 runs; RSD: 0.00)
+dataset [128][128]f32 [128][128]f32:        1942.40s (avg. of 10 runs; RSD: 0.01)
+dataset [32][32]f32 [32][32]f32:             232.90s (avg. of 10 runs; RSD: 0.02)
+dataset [8][8]f32 [8][8]f32:                 143.90s (avg. of 10 runs; RSD: 0.03)
+
+TUNED:
+dataset [2048][2048]f32 [2048][2048]f32:  106194.70s (avg. of 10 runs; RSD: 0.03)
+dataset [1024][1024]f32 [1024][1024]f32:   18120.70s (avg. of 10 runs; RSD: 0.04)
+dataset [128][128]f32 [128][128]f32:         556.70s (avg. of 10 runs; RSD: 0.03)
+dataset [32][32]f32 [32][32]f32:             159.30s (avg. of 10 runs; RSD: 0.03)
+dataset [8][8]f32 [8][8]f32:                 154.20s (avg. of 10 runs; RSD: 0.04)
+
+There are no difference between doing the "tie" run once or thrice, so I guess it is a decent enough strategy.
 
 
 #======#
@@ -786,6 +947,25 @@ print(futhark_bench_cmd(final_conf, None, None))
 PROBLEM:
 With the current train-set, I can NOT predict test-set.
 What do I do now, when I can't easily create new datasets?
+
+[qnb705@a00333 benchmarks]$ cat srad-data/train-D1.in | ./srad
+1i32   -- num_images
+448i32 -- rows
+448i32 -- cols
+[qnb705@a00333 benchmarks]$ cat srad-data/train-D2.in | ./srad
+960i32
+16i32
+16i32
+ 
+Make a training set: 
+1i32  (Just one image)
+1024i32 -- Rows
+1024i32 -- Cols
+
+futhark dataset --g [1][1024][1024]u8 > srad-data/train-D3.in
+
+Result: SUCCESS! Can predict the large test-set now based on dummy training D3
+
 
 #=============#
 # LocVolCalib #
