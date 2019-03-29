@@ -191,20 +191,20 @@ def futhark_bench_cmd(cfg, json, times, tile):
     def sizeOption(size):
         return '--pass-option --size={}={}'.format(size, cfg[size])
     size_options = ' '.join(map(sizeOption, cfg.keys()))
-    
+
     cmd = 'futhark bench --skip-compilation --exclude-case=notune {} '.format(program)
-    
+
     if json != None:
         cmd += '--json={} '.format(json.name)
-       
-    if times != None: 
+
+    if times != None:
         cmd += '--timeout={} '.format(compute_timeout(times))
-        
+
     if tile != None:
         cmd += '--pass-option --default-tile-size={} '.format(str(tile))
-       
+
     cmd += size_options
-    
+
     return cmd
 
 # Quick command to calculate the current timeout, based on the longest "best" time so far. ( + 1 second, since Futhark is very weird)
@@ -244,6 +244,24 @@ print('Done.')
 # Values of all threshold comparisons.
 # Branch-tree information for dependencies between thresholds.
 (datasets, thresholds, values, branch_tree) = extract_thresholds_and_values(program)
+
+# Prepare the final configuration (and baseline for conflict-resolution) and conflict-dict.
+# These will contain the final result
+final_conf = {}
+conflicts = {}
+
+# Start by initializing each threshold-range.
+threshold_ranges = {}
+for dataset in datasets:
+    threshold_ranges[dataset] = {}
+    for name in threshold_names:
+        threshold_ranges[dataset][name] = {}
+        threshold_ranges[dataset][name]['min'] = 0
+        threshold_ranges[dataset][name]['max'] = max_comparison + 1
+
+
+
+
 
 # Potential debug-printing, not used usually.
 #print("")
@@ -733,21 +751,19 @@ def combinations(lists):
                 versions.append([option] + comb)
         return versions
 
-list_of_confs = []        
-base_conf = dict(final_conf)        
-        
+list_of_confs = []
+base_conf = dict(final_conf)
+
 # Only perform this step if there are conflicts to fix.
+
+
+
 if len(conflicts) != 0:
     print("Encountered the following conflicts:")
     print(conflicts)
     
-    best_tile = 16
-    best_tile_time = 99999999999999999999
-
-    tiles = [4, 8, 16, 32, 64, 256, 1024, 4096]
-    
     final_conf = dict(base_conf)
-    
+
     for depth, i in deepest_first_order:
         branch = branch_tree[i]
         branch_names = extract_names([branch])
@@ -793,12 +809,11 @@ if len(conflicts) != 0:
 
             # Find the index of this threshold in Options
             optionPosition = -1
-            for k in range(len(version)):
+            for k in range(len(options)):
                 if options[k][0][0] == branch_names[position]:
                     optionPosition = k
                     break
-
-
+                  
             conf = dict(final_conf) #Copy the "fixed" values
 
             best_threshold_value = 0
@@ -859,46 +874,57 @@ if len(conflicts) != 0:
                     print("Current best {} is {} with {}".format(name, val, total_time))
                     best_threshold_time = total_time
                     best_threshold_value = val
-                    
+
 
             final_conf[name] = best_threshold_value
-        
-    print("Starting Tile-Size Calibration: {}".format(tiles))
-    for tile in tiles:  
-        print("Trying Tile: {}".format(tile))
-        with tempfile.NamedTemporaryFile() as json_tmp:
-            bench_cmd = futhark_bench_cmd(conf, json_tmp, None, tile)
-            call_program(bench_cmd)
 
-            json_data = json.load(json_tmp)
-            results = json_data[program]['datasets']            
-            total_time = 0
+best_tile = 16
+best_tile_time = 99999999999999999999
 
-            for dataset in results:
-                try:
-                    runtime = int(np.mean(results[dataset]['runtimes']))
-                    total_time +=  runtime
-                    
-                    print("[{}s] Dataset {} ran in {} with tile-size {}".format(int(time.time() - start), dataset, runtime, tile))
+tiles = [4, 8, 16, 32, 64, 256, 1024, 4096]
 
-                    if best_times[dataset] > runtime:
-                        best_times[dataset] = runtime
+print("[{}s]Starting Tile-Size Calibration: {}".format(int(time.time() - start), tiles))
+for tile in tiles:
+    print("[{}s] Trying Tile: {}".format(int(time.time() - start), tile))
+    with tempfile.NamedTemporaryFile() as json_tmp:
+        bench_cmd = futhark_bench_cmd(conf, json_tmp, None, tile)
+        call_program(bench_cmd)
+
+        json_data = json.load(json_tmp)
+        results = json_data[program]['datasets']
+        total_time = 0
+
+        for dataset in results:
+            try:
+                runtime = int(np.mean(results[dataset]['runtimes']))
+                total_time +=  runtime
+
+                print("[{}s] Dataset {} ran in {} with tile-size {}".format(int(time.time() - start), dataset, runtime, tile))
+
+                if best_times[dataset] > runtime:
+                    best_times[dataset] = runtime
 
 
-                except:
-                    # It timed out on this dataset
-                    # This means I add the total "best" to this one, as it can't be better anyway.
-                    total_time += best_times[dataset] * 2
-            
-            if total_time < best_tile_time:
-                best_tile = tile 
-                best_tile_time = total_time
-        
+            except:
+                # It timed out on this dataset
+                # This means I add the total "best" to this one, as it can't be better anyway.
+                total_time += best_times[dataset] * 2
+
+        if total_time < best_tile_time:
+            print("CHOSE NEW BEST AT {} WITH {} COMPARED TO OLD {}".format(tile, total_time, best_tile_time))
+            best_tile = tile
+            best_tile_time = total_time
+                
+                
+                
 print("Best Tile: {}".format(best_tile))
- 
+
 # Report the results.
 print("FINAL BENCH COMMAND:")
-print(futhark_bench_cmd(final_conf, None, None, best_tile))
+if best_tile == None: 
+    print(futhark_bench_cmd(final_conf, None, None, None))
+else:
+    print(futhark_bench_cmd(final_conf, None, None, best_tile))
 
 # ##  # #
 # REMEMBER TODO
@@ -956,8 +982,8 @@ What do I do now, when I can't easily create new datasets?
 960i32
 16i32
 16i32
- 
-Make a training set: 
+
+Make a training set:
 1i32  (Just one image)
 1024i32 -- Rows
 1024i32 -- Cols
@@ -1124,4 +1150,16 @@ Loop over number of branches?
       'name': 'main.suff_intra_par_7'}],
  True: [{'name': 'end', 'id': 16}],
  'name': 'main.suff_outer_par_6'}]
+
+
+
+
+
+
+
+
+
+
+
+
  """
