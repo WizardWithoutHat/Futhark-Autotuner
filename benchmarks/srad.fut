@@ -12,7 +12,8 @@
 
 module srad = import "srad-baseline"
 
-let main [num_images][rows][cols] (images: [num_images][rows][cols]u8): [num_images][rows][cols]f32 =
+let main [num_images][rows][cols] (images: [num_images][rows][cols]u8) : [num_images][rows][cols]f32 =
   let niter = 100
   let lambda = 0.5
+--  in (num_images, rows, cols)
   in map (\image -> srad.do_srad(niter, lambda, image)) images
