@@ -3,12 +3,12 @@
 -- parallel.
 --
 -- ==
--- notne compiled input @ srad-data/train-D1.in
--- notne compiled input @ srad-data/train-D2.in
--- notne compiled input @ srad-data/train-D3.in
+-- notne compiled input @ data/srad-data/train-D1.in
+-- notne compiled input @ data/srad-data/train-D2.in
+-- notne compiled input @ data/srad-data/train-D3.in
 --
--- notune compiled input @ srad-data/D1.in
--- notune compiled input @ srad-data/D2.in
+-- notune compiled input @ data/srad-data/D1.in
+-- notune compiled input @ data/srad-data/D2.in
 
 module srad = import "srad-baseline"
 

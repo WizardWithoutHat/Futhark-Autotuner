@@ -1096,15 +1096,8 @@ for i, program in enumerate(programs):
     print("Final command for target program {}, took {}s".format(program[:-4], int(time_taken)))
     print(bench_cmd)
     
-# ##  # #
-# REMEMBER TODO
-# Something about "best_branch" is off, currently set as conf, maybe unused entirely??? It probably should be used+??
-#
-# Try going through the SORTED list of option-values instead?
-#
-# Change the time recording from Total Time to Percentage Time
 
-
+    
 """
 #===============#
 # NOTES SECTION #
@@ -1174,7 +1167,15 @@ There are no difference between doing the "tie" run once or thrice, so I guess i
   True: [{'name': 'end', 'id': 0}], 
   'name': 'main.suff_outer_par_13'}]
 
-  
+LUD-CLEAN --print-sizes result: 
+main.suff_outer_par_13 (threshold ())
+main.suff_intra_par_14 (threshold (!main.suff_outer_par_13))
+main.suff_outer_par_15 (threshold (!main.suff_outer_par_13 !main.suff_intra_par_14))
+main.suff_intra_par_16 (threshold (!main.suff_outer_par_15 !main.suff_outer_par_13 !main.suff_intra_par_14))
+main.suff_outer_par_17 (threshold (!main.suff_outer_par_15 !main.suff_intra_par_16 !main.suff_outer_par_13 !main.suff_intra_par_14))
+main.suff_intra_par_18 (threshold (!main.suff_outer_par_17 !main.suff_outer_par_15 !main.suff_intra_par_16 !main.suff_outer_par_13 !main.suff_intra_par_14))
+main.suff_outer_par_19 (threshold (!main.suff_outer_par_17 !main.suff_intra_par_18 !main.suff_outer_par_15 !main.suff_intra_par_16 !main.suff_outer_par_13 !main.suff_intra_par_14))
+main.suff_intra_par_20 (threshold (!main.suff_outer_par_19 !main.suff_outer_par_17 !main.suff_intra_par_18 !main.suff_outer_par_15 !main.suff_intra_par_16 !main.suff_outer_par_13 !main.suff_intra_par_14))
 
 #======#
 # SRAD #
@@ -1359,26 +1360,5 @@ Loop over number of branches?
       'name': 'main.suff_intra_par_7'}],
  True: [{'name': 'end', 'id': 16}],
  'name': 'main.suff_outer_par_6'}]
-
-
-
-
-
-main.suff_outer_par_13 (threshold ())
-main.suff_intra_par_14 (threshold (!main.suff_outer_par_13))
-main.suff_outer_par_15 (threshold (!main.suff_outer_par_13 !main.suff_intra_par_14))
-main.suff_intra_par_16 (threshold (!main.suff_outer_par_15 !main.suff_outer_par_13 !main.suff_intra_par_14))
-main.suff_outer_par_17 (threshold (!main.suff_outer_par_15 !main.suff_intra_par_16 !main.suff_outer_par_13 !main.suff_intra_par_14))
-main.suff_intra_par_18 (threshold (!main.suff_outer_par_17 !main.suff_outer_par_15 !main.suff_intra_par_16 !main.suff_outer_par_13 !main.suff_intra_par_14))
-main.suff_outer_par_19 (threshold (!main.suff_outer_par_17 !main.suff_intra_par_18 !main.suff_outer_par_15 !main.suff_intra_par_16 !main.suff_outer_par_13 !main.suff_intra_par_14))
-main.suff_intra_par_20 (threshold (!main.suff_outer_par_19 !main.suff_outer_par_17 !main.suff_intra_par_18 !main.suff_outer_par_15 !main.suff_intra_par_16 !main.suff_outer_par_13 !main.suff_intra_par_14))
-
-
-
-
-
-
-
-
 
  """

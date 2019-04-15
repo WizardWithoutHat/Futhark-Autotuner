@@ -1,16 +1,16 @@
 -- Parallel blocked LU-decomposition.
 --
 -- ==
--- input @ data/16by16.in
--- output @ data/16by16.out
--- compiled input @ data/64.in
--- output @ data/64.out
--- compiled input @ data/256.in
--- output @ data/256.out
--- compiled input @ data/512.in.gz
--- output @ data/512.out.gz
--- compiled input @ data/2048.in.gz
--- output @ data/2048.out.gz
+-- input @ data/LUD-data/16by16.in
+-- output @ data/LUD-data/16by16.out
+-- compiled input @ data/LUD-data/64.in
+-- output @ data/LUD-data/64.out
+-- compiled input @ data/LUD-data/256.in
+-- output @ data/LUD-data/256.out
+-- compiled input @ data/LUD-data/512.in.gz
+-- output @ data/LUD-data/512.out.gz
+-- compiled input @ data/LUD-data/2048.in.gz
+-- output @ data/LUD-data/2048.out.gz
 
 -------------------------------------------
 ---- Translation of: lud_diagonal_omp -----

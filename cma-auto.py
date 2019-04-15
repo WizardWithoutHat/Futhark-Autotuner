@@ -559,10 +559,7 @@ def futhark_autotune_program(program):
     #================================#
     # STAGE 2 - Run CMA-ES algorithm #
     #================================#
-
-
-                
-        
+      
     initial_thresholds = []
     for name in threshold_names:
         param_list = []
@@ -735,7 +732,7 @@ futhark bench --skip-compilation --exclude-case=notune bfast-ours.fut --pass-opt
 2 timers CMA virkede ikke 
 futhark bench --skip-compilation --exclude-case=notune bfast-ours.fut --pass-option --default-tile-size=4194304 --pass-option --size=main.suff_outer_par_29=38675749 --pass-option --size=main.suff_outer_par_23=1 --pass-option --size=main.suff_outer_par_21=9217883 --pass-option --size=main.suff_outer_par_27=6496481 --pass-option --size=main.suff_outer_par_25=12074773 --pass-option --size=main.suff_intra_par_24=1 --pass-option --size=main.suff_intra_par_26=20734606 --pass-option --size=main.suff_intra_par_20=1 --pass-option --size=main.suff_intra_par_22=23985138 --pass-option --size=main.suff_intra_par_28=31418459 --pass-option --size=main.suff_outer_par_38=43240138 --pass-option --size=main.suff_outer_par_33=12443878 --pass-option --size=main.suff_outer_par_35=1 --pass-option --size=main.suff_outer_par_10=20566158 --pass-option --size=main.suff_outer_par_17=1 --pass-option --size=main.suff_outer_par_19=1923576 --pass-option --size=main.suff_intra_par_7=11925201 --pass-option --size=main.suff_intra_par_9=2277969 --pass-option --size=main.suff_intra_par_36=868184 --pass-option --size=main.suff_intra_par_11=1 --pass-option --size=main.suff_intra_par_34=1 --pass-option --size=main.suff_intra_par_13=1 --pass-option --size=main.suff_outer_par_6=1 --pass-option --size=main.suff_intra_par_30=1 --pass-option --size=main.suff_intra_par_18=1 --pass-option --size=main.suff_outer_par_8=1 --pass-option --size=main.suff_intra_par_39=1
 
-PRØV AT LAVE EN BY-BRANCH CMA INSTEAD! 
+PROEV AT LAVE EN BY-BRANCH CMA INSTEAD! 
 
 #=================#
 # CMA OPTION LIST #

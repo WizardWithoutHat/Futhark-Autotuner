@@ -1,17 +1,17 @@
 -- LocVolCalib
 -- ==
--- notun compiled input @ LocVolCalib-data/train-small.in
--- notun compiled input @ LocVolCalib-data/train-medium.in
--- notun compiled input @ LocVolCalib-data/train-large.in
+-- notun compiled input @ data/LocVolCalib-data/train-small.in
+-- notun compiled input @ data/LocVolCalib-data/train-medium.in
+-- notun compiled input @ data/LocVolCalib-data/train-large.in
 --
--- notune compiled input @ LocVolCalib-data/small.in
--- output @ LocVolCalib-data/small.out
+-- notune compiled input @ data/LocVolCalib-data/small.in
+-- output @ data/LocVolCalib-data/small.out
 --
--- notune compiled input @ LocVolCalib-data/medium.in
--- output @ LocVolCalib-data/medium.out
+-- notune compiled input @ data/LocVolCalib-data/medium.in
+-- output @ data/LocVolCalib-data/medium.out
 --
--- notune compiled input @ LocVolCalib-data/large.in
--- output @ LocVolCalib-data/large.out
+-- notune compiled input @ data/LocVolCalib-data/large.in
+-- output @ data/LocVolCalib-data/large.out
 
 let initGrid(s0: f32, alpha: f32, nu: f32, t: f32, numX: i32, numY: i32, numT: i32)
   : (i32, i32, [numX]f32, [numY]f32, [numT]f32) =
