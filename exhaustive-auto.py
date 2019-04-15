@@ -67,7 +67,6 @@ def extract_thresholds_and_values(program):
         for dataset in datasets:
             thresholds[dataset] = defaultdict(list)
 
-
             for line in datasets[dataset]['stderr'].splitlines():
                 match = val_re.search(line)
                 if match:
@@ -419,6 +418,11 @@ else:
     programs = sys.argv[1:]
 
 for program in programs:
+    print_str = "# STARTING TO RUN: {} #".format(program)
+    print("#" + '=' * (len(print_str) - 2) + "#")
+    print(print_str)
+    print("#" + '=' * (len(print_str) - 2) + "#")
+
     # Log the start-time, used in logging.
     start = time.time()
 
@@ -1080,11 +1084,16 @@ for program in programs:
 
     script_results.append((time.time() - start,futhark_bench_cmd(final_conf, None, None, best_tile)))
     
-
+print("")
+print_str = "# FINISHED RUNNING {} BENCHMARKS #".format(len(programs))
+print("#" + '=' * (len(print_str) - 2) + "#")
+print(print_str)
+print("#" + '=' * (len(print_str) - 2) + "#")
+    
 for i, program in enumerate(programs):
     (time_taken, bench_cmd) = script_results[i]
     print("")
-    print("Final command for target program {}, took {}s".format(program[:-4], time_taken))
+    print("Final command for target program {}, took {}s".format(program[:-4], int(time_taken)))
     print(bench_cmd)
     
 # ##  # #
@@ -1136,6 +1145,36 @@ dataset [8][8]f32 [8][8]f32:                 154.20s (avg. of 10 runs; RSD: 0.04
 
 There are no difference between doing the "tie" run once or thrice, so I guess it is a decent enough strategy.
 
+#=====#
+# LUD #
+#=====# 
+
+[{False: 
+    [{False: 
+        [{False: 
+            [{False: 
+                [{False: 
+                    [{False: 
+                        [{False: 
+                            [{False: [{'name': 'end', 'id': 15}], 
+                              True: [{'name': 'end', 'id': 14}], 
+                              'name': 'main.suff_intra_par_20'}], 
+                         True: [{'name': 'end', 'id': 12}], 
+                         'name': 'main.suff_outer_par_19'}],
+                     True: [{'name': 'end', 'id': 10}], 
+                     'name': 'main.suff_intra_par_18'}], 
+                 True: [{'name': 'end', 'id': 8}], 
+                 'name': 'main.suff_outer_par_17'}], 
+             True: [{'name': 'end', 'id': 6}], 
+             'name': 'main.suff_intra_par_16'}], 
+          True: [{'name': 'end', 'id': 4}], 
+          'name': 'main.suff_outer_par_15'}], 
+      True: [{'name': 'end', 'id': 2}], 
+      'name': 'main.suff_intra_par_14'}], 
+  True: [{'name': 'end', 'id': 0}], 
+  'name': 'main.suff_outer_par_13'}]
+
+  
 
 #======#
 # SRAD #
@@ -1323,6 +1362,16 @@ Loop over number of branches?
 
 
 
+
+
+main.suff_outer_par_13 (threshold ())
+main.suff_intra_par_14 (threshold (!main.suff_outer_par_13))
+main.suff_outer_par_15 (threshold (!main.suff_outer_par_13 !main.suff_intra_par_14))
+main.suff_intra_par_16 (threshold (!main.suff_outer_par_15 !main.suff_outer_par_13 !main.suff_intra_par_14))
+main.suff_outer_par_17 (threshold (!main.suff_outer_par_15 !main.suff_intra_par_16 !main.suff_outer_par_13 !main.suff_intra_par_14))
+main.suff_intra_par_18 (threshold (!main.suff_outer_par_17 !main.suff_outer_par_15 !main.suff_intra_par_16 !main.suff_outer_par_13 !main.suff_intra_par_14))
+main.suff_outer_par_19 (threshold (!main.suff_outer_par_17 !main.suff_intra_par_18 !main.suff_outer_par_15 !main.suff_intra_par_16 !main.suff_outer_par_13 !main.suff_intra_par_14))
+main.suff_intra_par_20 (threshold (!main.suff_outer_par_19 !main.suff_outer_par_17 !main.suff_intra_par_18 !main.suff_outer_par_15 !main.suff_intra_par_16 !main.suff_outer_par_13 !main.suff_intra_par_14))
 
 
 
