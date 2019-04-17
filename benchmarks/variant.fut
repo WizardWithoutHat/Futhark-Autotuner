@@ -1,8 +1,12 @@
 -- ==
--- random input { [1024][1024]f32 [1024][1024]f32 }
--- random input { [128][128]f32 [128][128]f32 }
--- random input { [32][32]f32 [32][32]f32 }
--- random input { [8][8]f32 [8][8]f32 }
+-- compiled input @ data/variant-data/1024.in
+-- output @ data/variant-data/1024.out
+-- compiled input @ data/variant-data/128.in
+-- output @ data/variant-data/128.out
+-- compiled input @ data/variant-data/32.in
+-- output @ data/variant-data/32.out
+-- compiled input @ data/variant-data/8.in
+-- output @ data/variant-data/8.out
 
 
 let main1 [n][m] (A : [n][m] i32)  =
