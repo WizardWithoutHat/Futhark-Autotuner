@@ -66,7 +66,7 @@ def extract_thresholds_and_values(program):
         val_re = re.compile('Compared ([^ ]+) <= (-?\d+)')
         for dataset in datasets:
             thresholds[dataset] = defaultdict(list)
-
+            
             for line in datasets[dataset]['stderr'].splitlines():
                 match = val_re.search(line)
                 if match:
@@ -995,57 +995,186 @@ for program in programs:
                 best_threshold_value = 0
                 best_threshold_time  = np.inf
 
-                for k, current_option in enumerate(options[optionPosition]):
-                    name, val = current_option
-                    print("[{}s] Trying value {} for threshold {}".format( int(time.time() - start), val, name ))
+                print("GOT ALL THESE:")
+                print(options[optionPosition])
+                
+                #[('main.suff_outer_par_19', 4129025), ('main.suff_outer_par_19', 4129024), ('main.suff_outer_par_19', 4064256), ('main.suff_outer_par_19', 4000000), ('main.suff_outer_par_19', 3936256), ('main.suff_outer_par_19', 3873024), ('main.suff_outer_par_19', 3810304), ('main.suff_outer_par_19', 3748096), ('main.suff_outer_par_19', 3686400), ('main.suff_outer_par_19', 3625216), ('main.suff_outer_par_19', 3564544), ('main.suff_outer_par_19', 3504384), ('main.suff_outer_par_19', 3444736), ('main.suff_outer_par_19', 3385600), ('main.suff_outer_par_19', 3326976), ('main.suff_outer_par_19', 3268864), ('main.suff_outer_par_19', 3211264), ('main.suff_outer_par_19', 3154176), ('main.suff_outer_par_19', 3097600), ('main.suff_outer_par_19', 3041536), ('main.suff_outer_par_19', 2985984), ('main.suff_outer_par_19', 2930944), ('main.suff_outer_par_19', 2876416), ('main.suff_outer_par_19', 2822400), ('main.suff_outer_par_19', 2768896), ('main.suff_outer_par_19', 2715904), ('main.suff_outer_par_19', 2663424), ('main.suff_outer_par_19', 2611456), ('main.suff_outer_par_19', 2560000), ('main.suff_outer_par_19', 2509056), ('main.suff_outer_par_19', 2458624), ('main.suff_outer_par_19', 2408704), ('main.suff_outer_par_19', 2359296), ('main.suff_outer_par_19', 2310400), ('main.suff_outer_par_19', 2262016), ('main.suff_outer_par_19', 2214144), ('main.suff_outer_par_19', 2166784), ('main.suff_outer_par_19', 2119936), ('main.suff_outer_par_19', 2073600), ('main.suff_outer_par_19', 2027776), ('main.suff_outer_par_19', 1982464), ('main.suff_outer_par_19', 1937664), ('main.suff_outer_par_19', 1893376), ('main.suff_outer_par_19', 1849600), ('main.suff_outer_par_19', 1806336), ('main.suff_outer_par_19', 1763584), ('main.suff_outer_par_19', 1721344), ('main.suff_outer_par_19', 1679616), ('main.suff_outer_par_19', 1638400), ('main.suff_outer_par_19', 1597696), ('main.suff_outer_par_19', 1557504), ('main.suff_outer_par_19', 1517824), ('main.suff_outer_par_19', 1478656), ('main.suff_outer_par_19', 1440000), ('main.suff_outer_par_19', 1401856), ('main.suff_outer_par_19', 1364224), ('main.suff_outer_par_19', 1327104), ('main.suff_outer_par_19', 1290496), ('main.suff_outer_par_19', 1254400), ('main.suff_outer_par_19', 1218816), ('main.suff_outer_par_19', 1183744), ('main.suff_outer_par_19', 1149184), ('main.suff_outer_par_19', 1115136), ('main.suff_outer_par_19', 1081600), ('main.suff_outer_par_19', 1048576), ('main.suff_outer_par_19', 1016064), ('main.suff_outer_par_19', 984064), ('main.suff_outer_par_19', 952576), ('main.suff_outer_par_19', 921600), ('main.suff_outer_par_19', 891136), ('main.suff_outer_par_19', 861184), ('main.suff_outer_par_19', 831744), ('main.suff_outer_par_19', 802816), ('main.suff_outer_par_19', 774400), ('main.suff_outer_par_19', 746496), ('main.suff_outer_par_19', 719104), ('main.suff_outer_par_19', 692224), ('main.suff_outer_par_19', 665856), ('main.suff_outer_par_19', 640000), ('main.suff_outer_par_19', 614656), ('main.suff_outer_par_19', 589824), ('main.suff_outer_par_19', 565504), ('main.suff_outer_par_19', 541696), ('main.suff_outer_par_19', 518400), ('main.suff_outer_par_19', 495616), ('main.suff_outer_par_19', 473344), ('main.suff_outer_par_19', 451584), ('main.suff_outer_par_19', 430336), ('main.suff_outer_par_19', 409600), ('main.suff_outer_par_19', 389376), ('main.suff_outer_par_19', 369664), ('main.suff_outer_par_19', 350464), ('main.suff_outer_par_19', 331776), ('main.suff_outer_par_19', 313600), ('main.suff_outer_par_19', 295936), ('main.suff_outer_par_19', 278784), ('main.suff_outer_par_19', 262144), ('main.suff_outer_par_19', 246016), ('main.suff_outer_par_19', 230400), ('main.suff_outer_par_19', 215296), ('main.suff_outer_par_19', 200704), ('main.suff_outer_par_19', 186624), ('main.suff_outer_par_19', 173056), ('main.suff_outer_par_19', 160000), ('main.suff_outer_par_19', 147456), ('main.suff_outer_par_19', 135424), ('main.suff_outer_par_19', 123904), ('main.suff_outer_par_19', 112896), ('main.suff_outer_par_19', 102400), ('main.suff_outer_par_19', 92416), ('main.suff_outer_par_19', 82944), ('main.suff_outer_par_19', 73984), ('main.suff_outer_par_19', 65536), ('main.suff_outer_par_19', 57600), ('main.suff_outer_par_19', 50176), ('main.suff_outer_par_19', 43264), ('main.suff_outer_par_19', 36864), ('main.suff_outer_par_19', 30976), ('main.suff_outer_par_19', 25600), ('main.suff_outer_par_19', 20736), ('main.suff_outer_par_19', 16384), ('main.suff_outer_par_19', 12544), ('main.suff_outer_par_19', 9216), ('main.suff_outer_par_19', 6400), ('main.suff_outer_par_19', 4096), ('main.suff_outer_par_19', 2304), ('main.suff_outer_par_19', 1024), ('main.suff_outer_par_19', 256)]
 
-                    # Update the specific conflict-threshold's value to this possible option.
-                    conf[name] = val
-
-                    # Run the benchmark.
-                    with tempfile.NamedTemporaryFile() as json_tmp:
-                        if i == 0:
-                            bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
+                loop_options = list(options[optionPosition])
+                first = 0
+                last = len(loop_options) - 1
+                first_iteration = True
+                
+                if len(loop_options) > 4:
+                    while len(loop_options[first:last]) != 0:
+                        if first_iteration:
+                            midpoint = 0
                         else:
-                            bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
+                            midpoint = (first + last) // 2
+                            
+                        name, val = loop_options[midpoint]
+                        print("[{}s] Trying value {} for threshold {}".format( int(time.time() - start), val, name ))
+
+                        # Update the specific conflict-threshold's value to this possible option.
+                        conf[name] = val
+
+                        # Run the benchmark.
+                        with tempfile.NamedTemporaryFile() as json_tmp:
+                            if i == 0:
+                                bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
+                            else:
+                                bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
 
 
-                        call_program(bench_cmd)
+                            call_program(bench_cmd)
 
-                        json_data = json.load(json_tmp)
+                            json_data = json.load(json_tmp)
 
-                        results = json_data[program]['datasets']
+                            results = json_data[program]['datasets']
 
-                        # This time using total aggregate runtime.
-                        # This was chosen since earlier we optimized based on datasets, and here we don't.
-                        # (Aggregate runtime favours longer-running datasets)
-                        total_time = 0
-                        for dataset in results:
-                            try:
-                                runtime = int(np.mean(results[dataset]['runtimes']))
+                            # This time using total aggregate runtime.
+                            # This was chosen since earlier we optimized based on datasets, and here we don't.
+                            # (Aggregate runtime favours longer-running datasets)
+                            total_time = 0
+                            for dataset in results:
+                                try:
+                                    runtime = int(np.mean(results[dataset]['runtimes']))
 
-                                total_time +=  runtime
+                                    total_time +=  runtime
 
-                                #print("[{}s] Dataset {} ran in {}".format(int(time.time() - start), dataset, runtime))
+                                    #print("[{}s] Dataset {} ran in {}".format(int(time.time() - start), dataset, runtime))
 
-                            except:
-                                # It timed out on this dataset
-                                # This means I add the total "best" to this one, as it can't be better anyway.
-                                total_time += np.inf
+                                except:
+                                    # It timed out on this dataset
+                                    # This means I add the total "best" to this one, as it can't be better anyway.
+                                    total_time += np.inf
+                        
+                        # Update "best" overall version.
+                        if total_time < best_branch_time:
+                            best_branch_time = total_time
+                            best_branch = conf
 
-                    # Update "best" overall version.
-                    if total_time < best_branch_time:
-                        best_branch_time = total_time
-                        best_branch = conf
+                        # If first iteration of binary search, set stuff.
+                        if first_iteration:
+                            print("Current best {} is {} with {}".format(name, val, total_time))
+                            best_threshold_time = total_time
+                            best_threshold_value = val
+                            first_iteration = False
+                            continue
+                            
+                        # Update "best" current threshold value
+                        if total_time < best_threshold_time:
+                            print("Current best {} is {} with {}".format(name, val, total_time))
+                            best_threshold_time = total_time
+                            best_threshold_value = val
+                            first = midpoint + 1
+                        else:
+                            last = midpoint - 1
+                else: 
+                    for k, current_option in enumerate(options[optionPosition]):
+                        name, val = current_option
+                        print("[{}s] Trying value {} for threshold {}".format( int(time.time() - start), val, name ))
 
-                    # Update "best" current threshold value
-                    if total_time < best_threshold_time:
-                        print("Current best {} is {} with {}".format(name, val, total_time))
-                        best_threshold_time = total_time
-                        best_threshold_value = val
+                        # Update the specific conflict-threshold's value to this possible option.
+                        conf[name] = val
+
+                        # Run the benchmark.
+                        with tempfile.NamedTemporaryFile() as json_tmp:
+                            if i == 0:
+                                bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
+                            else:
+                                bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
+
+
+                            call_program(bench_cmd)
+
+                            json_data = json.load(json_tmp)
+
+                            results = json_data[program]['datasets']
+
+                            # This time using total aggregate runtime.
+                            # This was chosen since earlier we optimized based on datasets, and here we don't.
+                            # (Aggregate runtime favours longer-running datasets)
+                            total_time = 0
+                            for dataset in results:
+                                try:
+                                    runtime = int(np.mean(results[dataset]['runtimes']))
+
+                                    total_time +=  runtime
+
+                                    #print("[{}s] Dataset {} ran in {}".format(int(time.time() - start), dataset, runtime))
+
+                                except:
+                                    # It timed out on this dataset
+                                    # This means I add the total "best" to this one, as it can't be better anyway.
+                                    total_time += np.inf
+
+                        # Update "best" overall version.
+                        if total_time < best_branch_time:
+                            best_branch_time = total_time
+                            best_branch = conf
+
+                        # Update "best" current threshold value
+                        if total_time < best_threshold_time:
+                            print("Current best {} is {} with {}".format(name, val, total_time))
+                            best_threshold_time = total_time
+                            best_threshold_value = val
 
                 print("Chose the following threshold for {} : {}".format(name, best_threshold_value))
                 final_conf[name] = best_threshold_value
+                
+                
+#                for k, current_option in enumerate(options[optionPosition]):
+#                    name, val = current_option
+#                    print("[{}s] Trying value {} for threshold {}".format( int(time.time() - start), val, name ))
+#
+#                    # Update the specific conflict-threshold's value to this possible option.
+#                    conf[name] = val
+#
+#                    # Run the benchmark.
+#                    with tempfile.NamedTemporaryFile() as json_tmp:
+#                        if i == 0:
+#                            bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
+#                        else:
+#                            bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
+#
+#
+#                        call_program(bench_cmd)
+#
+#                        json_data = json.load(json_tmp)
+#
+#                        results = json_data[program]['datasets']
+#
+#                        # This time using total aggregate runtime.
+#                        # This was chosen since earlier we optimized based on datasets, and here we don't.
+#                        # (Aggregate runtime favours longer-running datasets)
+#                        total_time = 0
+#                        for dataset in results:
+#                            try:
+#                                runtime = int(np.mean(results[dataset]['runtimes']))
+#
+#                                total_time +=  runtime
+#
+#                                #print("[{}s] Dataset {} ran in {}".format(int(time.time() - start), dataset, runtime))
+#
+#                            except:
+#                                # It timed out on this dataset
+#                                # This means I add the total "best" to this one, as it can't be better anyway.
+#                                total_time += np.inf
+#
+#                    # Update "best" overall version.
+#                    if total_time < best_branch_time:
+#                        best_branch_time = total_time
+#                        best_branch = conf
+#
+#                    # Update "best" current threshold value
+#                    if total_time < best_threshold_time:
+#                        print("Current best {} is {} with {}".format(name, val, total_time))
+#                        best_threshold_time = total_time
+#                        best_threshold_value = val
+#
+#                print("Chose the following threshold for {} : {}".format(name, best_threshold_value))
+#                final_conf[name] = best_threshold_value
 
     best_tile = 16
 
@@ -1118,6 +1247,7 @@ for i, program in enumerate(programs):
 #===============#
 # NOTES SECTION #
 #===============#
+[('main.suff_outer_par_19', 4129025), ('main.suff_outer_par_19', 4129024), ('main.suff_outer_par_19', 4064256), ('main.suff_outer_par_19', 4000000), ('main.suff_outer_par_19', 3936256), ('main.suff_outer_par_19', 3873024), ('main.suff_outer_par_19', 3810304), ('main.suff_outer_par_19', 3748096), ('main.suff_outer_par_19', 3686400), ('main.suff_outer_par_19', 3625216), ('main.suff_outer_par_19', 3564544), ('main.suff_outer_par_19', 3504384), ('main.suff_outer_par_19', 3444736), ('main.suff_outer_par_19', 3385600), ('main.suff_outer_par_19', 3326976), ('main.suff_outer_par_19', 3268864), ('main.suff_outer_par_19', 3211264), ('main.suff_outer_par_19', 3154176), ('main.suff_outer_par_19', 3097600), ('main.suff_outer_par_19', 3041536), ('main.suff_outer_par_19', 2985984), ('main.suff_outer_par_19', 2930944), ('main.suff_outer_par_19', 2876416), ('main.suff_outer_par_19', 2822400), ('main.suff_outer_par_19', 2768896), ('main.suff_outer_par_19', 2715904), ('main.suff_outer_par_19', 2663424), ('main.suff_outer_par_19', 2611456), ('main.suff_outer_par_19', 2560000), ('main.suff_outer_par_19', 2509056), ('main.suff_outer_par_19', 2458624), ('main.suff_outer_par_19', 2408704), ('main.suff_outer_par_19', 2359296), ('main.suff_outer_par_19', 2310400), ('main.suff_outer_par_19', 2262016), ('main.suff_outer_par_19', 2214144), ('main.suff_outer_par_19', 2166784), ('main.suff_outer_par_19', 2119936), ('main.suff_outer_par_19', 2073600), ('main.suff_outer_par_19', 2027776), ('main.suff_outer_par_19', 1982464), ('main.suff_outer_par_19', 1937664), ('main.suff_outer_par_19', 1893376), ('main.suff_outer_par_19', 1849600), ('main.suff_outer_par_19', 1806336), ('main.suff_outer_par_19', 1763584), ('main.suff_outer_par_19', 1721344), ('main.suff_outer_par_19', 1679616), ('main.suff_outer_par_19', 1638400), ('main.suff_outer_par_19', 1597696), ('main.suff_outer_par_19', 1557504), ('main.suff_outer_par_19', 1517824), ('main.suff_outer_par_19', 1478656), ('main.suff_outer_par_19', 1440000), ('main.suff_outer_par_19', 1401856), ('main.suff_outer_par_19', 1364224), ('main.suff_outer_par_19', 1327104), ('main.suff_outer_par_19', 1290496), ('main.suff_outer_par_19', 1254400), ('main.suff_outer_par_19', 1218816), ('main.suff_outer_par_19', 1183744), ('main.suff_outer_par_19', 1149184), ('main.suff_outer_par_19', 1115136), ('main.suff_outer_par_19', 1081600), ('main.suff_outer_par_19', 1048576), ('main.suff_outer_par_19', 1016064), ('main.suff_outer_par_19', 984064), ('main.suff_outer_par_19', 952576), ('main.suff_outer_par_19', 921600), ('main.suff_outer_par_19', 891136), ('main.suff_outer_par_19', 861184), ('main.suff_outer_par_19', 831744), ('main.suff_outer_par_19', 802816), ('main.suff_outer_par_19', 774400), ('main.suff_outer_par_19', 746496), ('main.suff_outer_par_19', 719104), ('main.suff_outer_par_19', 692224), ('main.suff_outer_par_19', 665856), ('main.suff_outer_par_19', 640000), ('main.suff_outer_par_19', 614656), ('main.suff_outer_par_19', 589824), ('main.suff_outer_par_19', 565504), ('main.suff_outer_par_19', 541696), ('main.suff_outer_par_19', 518400), ('main.suff_outer_par_19', 495616), ('main.suff_outer_par_19', 473344), ('main.suff_outer_par_19', 451584), ('main.suff_outer_par_19', 430336), ('main.suff_outer_par_19', 409600), ('main.suff_outer_par_19', 389376), ('main.suff_outer_par_19', 369664), ('main.suff_outer_par_19', 350464), ('main.suff_outer_par_19', 331776), ('main.suff_outer_par_19', 313600), ('main.suff_outer_par_19', 295936), ('main.suff_outer_par_19', 278784), ('main.suff_outer_par_19', 262144), ('main.suff_outer_par_19', 246016), ('main.suff_outer_par_19', 230400), ('main.suff_outer_par_19', 215296), ('main.suff_outer_par_19', 200704), ('main.suff_outer_par_19', 186624), ('main.suff_outer_par_19', 173056), ('main.suff_outer_par_19', 160000), ('main.suff_outer_par_19', 147456), ('main.suff_outer_par_19', 135424), ('main.suff_outer_par_19', 123904), ('main.suff_outer_par_19', 112896), ('main.suff_outer_par_19', 102400), ('main.suff_outer_par_19', 92416), ('main.suff_outer_par_19', 82944), ('main.suff_outer_par_19', 73984), ('main.suff_outer_par_19', 65536), ('main.suff_outer_par_19', 57600), ('main.suff_outer_par_19', 50176), ('main.suff_outer_par_19', 43264), ('main.suff_outer_par_19', 36864), ('main.suff_outer_par_19', 30976), ('main.suff_outer_par_19', 25600), ('main.suff_outer_par_19', 20736), ('main.suff_outer_par_19', 16384), ('main.suff_outer_par_19', 12544), ('main.suff_outer_par_19', 9216), ('main.suff_outer_par_19', 6400), ('main.suff_outer_par_19', 4096), ('main.suff_outer_par_19', 2304), ('main.suff_outer_par_19', 1024), ('main.suff_outer_par_19', 256)]
 
 
 #================#
@@ -1196,27 +1326,6 @@ main.suff_intra_par_20 (threshold (!main.suff_outer_par_19 !main.suff_outer_par_
 #======#
 # SRAD #
 #======#
-PROBLEM:
-With the current train-set, I can NOT predict test-set.
-What do I do now, when I can't easily create new datasets?
-
-[qnb705@a00333 benchmarks]$ cat srad-data/train-D1.in | ./srad
-1i32   -- num_images
-448i32 -- rows
-448i32 -- cols
-[qnb705@a00333 benchmarks]$ cat srad-data/train-D2.in | ./srad
-960i32
-16i32
-16i32
-
-Make a training set:
-1i32  (Just one image)
-1024i32 -- Rows
-1024i32 -- Cols
-
-futhark dataset --g [1][1024][1024]u8 > srad-data/train-D3.in
-
-Result: SUCCESS! Can predict the large test-set now based on dummy training D3
 
 
 #=============#
