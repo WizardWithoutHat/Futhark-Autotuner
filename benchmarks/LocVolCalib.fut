@@ -1,8 +1,13 @@
 -- LocVolCalib
 -- ==
 -- notun compiled input @ data/LocVolCalib-data/train-small.in
+-- output @ data/LocVolCalib-data/train-small.out
+--
 -- notun compiled input @ data/LocVolCalib-data/train-medium.in
+-- output @ data/LocVolCalib-data/train-medium.out
+--
 -- notun compiled input @ data/LocVolCalib-data/train-large.in
+-- output @ data/LocVolCalib-data/train-large.out
 --
 -- notune compiled input @ data/LocVolCalib-data/small.in
 -- output @ data/LocVolCalib-data/small.out
