@@ -215,6 +215,7 @@ def futhark_bench_cmd(cfg, json, times, tile):
 
 # Quick command to calculate the current timeout, based on the longest "best" time so far. ( + 1 second, since Futhark is very weird)
 def compute_timeout(best):
+    global overhead
     return int((np.amax(best.values()) * 10) / 1000000.0) + int(overhead) # Multiplied by 10 because that is the number of runs in benchmarks.
 
 # Function to extract names of thresholds in just one branch.
@@ -336,7 +337,7 @@ def evaluation_function(threshold_list, baseconf, name_list):
             
     # Find all execution paths for this configuration. 
     # Allows look-up of earlier computations.
-    execution_path = compute_execution_path(conf) + 'T' + str(tile)
+    execution_path = compute_execution_path(conf)# + 'T' + str(tile)
     
     global execution_cache
     if execution_path in execution_cache:
@@ -352,7 +353,12 @@ def evaluation_function(threshold_list, baseconf, name_list):
     print("[{}s] Attempting execution path: {} with TILE: {}".format(int(time.time() - start), execution_path, tile)) 
         
     with tempfile.NamedTemporaryFile() as json_tmp:
-        bench_cmd = futhark_bench_cmd(conf, json_tmp, None, tile)
+        global baseline_times
+        if num_executed == 1:
+            bench_cmd = futhark_bench_cmd(conf, json_tmp, None, tile)
+        else:
+            bench_cmd = futhark_bench_cmd(conf, json_tmp, baseline_times, tile)
+        
         #print(bench_cmd)
         call_program(bench_cmd)
 
@@ -360,7 +366,6 @@ def evaluation_function(threshold_list, baseconf, name_list):
 
         results = json_data[program]['datasets']
 
-        global baseline_times
         total_time = 0
 
         # Record every dataset's runtime, and store it.
@@ -559,6 +564,50 @@ def futhark_autotune_program(program):
     #================================#
     # STAGE 2 - Run CMA-ES algorithm #
     #================================#        
+    global execution_cache
+    execution_cache = {}    
+    
+    global baseline_times
+    baseline_times = {}
+    
+    #Perform the FIRST bench-run, to get a base-line and prepare for the proper loop.
+    with tempfile.NamedTemporaryFile() as json_tmp:
+        # Benchmark using all-false thresholds.
+        print("Starting first Benchmark")
+        
+        #bench_cmd = futhark_bench_cmd(conf, json_tmp, None, None)
+        bench_cmd = "futhark bench {} --skip-compilation --json={}".format(program, json_tmp.name)
+
+        wall_start = time.time()
+        call_program(bench_cmd)
+        wall_duration = time.time() - wall_start
+
+        json_data = json.load(json_tmp)
+
+        base_datasets = json_data[program]['datasets']
+        
+        dataset_runtimes = []
+        for dataset in base_datasets:
+            try:
+                dataset_runtimes.append(sum(base_datasets[dataset]['runtimes']) / 1000000.0)
+                runtime = int(np.mean(base_datasets[dataset]['runtimes']))
+
+                baseline_times[dataset] = runtime
+                
+            except:
+                print("NO-TUNED BENCHMARK FAILED!")
+                return("NO-TUNED BENCHMARK FAILED!")
+#                dataset_runtimes.append(np.inf)
+ #               execution_cache[compute_execution_path(conf)][dataset] = np.inf
+  #              baseline_times[dataset] = 1000000 #Not inf, since this is can be anything really...
+         
+        #dataset_runtimes = [ sum(base_datasets[dataset]['runtimes']) / 1000000.0
+        #                        for dataset in base_datasets ]
+
+        global overhead
+        overhead = (wall_duration - (sum(dataset_runtimes) / len(dataset_runtimes))) + 1
+        print("Overhead: {}".format(overhead)) 
+    
     baseline = []
     for name in threshold_names:
         param_list = []
@@ -578,14 +627,7 @@ def futhark_autotune_program(program):
     num_executed = 0
     num_failed = 0
 
-    # Setup dict for storing caching info
-    global execution_cache
-    execution_cache = {}    
-
     timeout_val = 60 * 60 * 2
-
-    global baseline_times
-    baseline_times = {}
 
     for depth, i in deepest_first_order:
         # Calculate the number of thresholds before and after this branch.
@@ -604,9 +646,10 @@ def futhark_autotune_program(program):
         branch_result = cma.fmin(evaluation_function, 
                                  baseline[depth_before:depth_before+depth] + [baseline[-1]], 
                                  int(max_comparison * 0.30), 
-                                 {'popsize': 4 + int(3 * np.log2(len(initial_thresholds))), 'timeout': timeout_val},
+                                 {'popsize': 4 + int(3 * np.log2(len(baseline[depth_before:depth_before+depth]))), 'timeout': timeout_val},
                                  args=([baseconf, branch_threshold_names]))
                                  
+        baseline[depth_before:depth_before+depth] = branch_result[0][:-1]
 
     print("[{}s] Skipped {} total executions by caching".format(int(time.time() - start), num_skipped))
     print("[{}s] Performed {} total experiments".format(int(time.time() - start), num_executed))
@@ -617,13 +660,13 @@ def futhark_autotune_program(program):
     print("FINAL BENCH COMMAND:")
 
     conf = {}
-    for name, val in zip(threshold_names, x[0][:-1]):
+    for name, val in zip(threshold_names, baseline[:-1]):
         if val < 1:
             val = 1
             
         conf[name] = int(val)
 
-    final_command = futhark_bench_cmd(conf, None, None, nearest_power_of_2(x[0][-1]))
+    final_command = futhark_bench_cmd(conf, None, None, 16)#nearest_power_of_2(x[0][-1]))
     print(final_command)
     
     return final_command

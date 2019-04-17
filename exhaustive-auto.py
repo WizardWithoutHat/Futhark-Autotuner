@@ -195,7 +195,8 @@ def futhark_bench_cmd(cfg, json, times, tile):
     if json != None:
         cmd += '--json={} '.format(json.name)
     if times != None:
-        cmd += '--timeout={} '.format(compute_timeout(times))
+        if not (any(np.isinf(val) for val in times.values())):
+            cmd += '--timeout={} '.format(compute_timeout(times))
     if tile != None:
         cmd += '--pass-option --default-tile-size={} '.format(str(tile))
     cmd += size_options
@@ -203,8 +204,13 @@ def futhark_bench_cmd(cfg, json, times, tile):
 
 # Quick command to calculate the current timeout, based on the longest "best" time so far. ( + 1 second, since Futhark is very weird)
 def compute_timeout(best):
-    return int((np.amax(best.values()) * 20) / 1000000.0) + int(overhead) # Multiplied by 10 because that is the number of runs in benchmarks.
-
+    timeout = ((np.amax(best.values()) * 20) / 1000000.0) + int(overhead) # Multiplied by 10 because that is the number of runs in benchmarks.
+    if np.isinf(timeout):
+        return -1
+    else:
+        return int(timeout)
+    
+    
 # Function to extract names of thresholds in just one branch.
 def extract_names(tree_list):
     all_names = []
@@ -553,11 +559,15 @@ for program in programs:
     # In each version, all thresholds are either "TRUE" or "FALSE" for all datasets, to try all versions for all datasets.
     # (Also, keep track of the time, such that a dynamic timeout can be used. Since there is only 1 timeout, it is the longest running dataset so far)
 
-    execution_cache = {}
+    execution_cache = {}    
+    best_times = {}
+    best_versions = {}
+    baseline_times = {}
     #Perform the FIRST bench-run, to get a base-line and prepare for the proper loop.
     with tempfile.NamedTemporaryFile() as json_tmp:
         # Benchmark using all-false thresholds.
         conf = dict(base_conf)
+        execution_cache[compute_execution_path(conf)] = {}
         print(conf)
         for name in threshold_names:
             if name not in conf:
@@ -574,25 +584,30 @@ for program in programs:
         json_data = json.load(json_tmp)
 
         base_datasets = json_data[program]['datasets']
+        
+        dataset_runtimes = []
+        for dataset in base_datasets:
+            try:
+                dataset_runtimes.append(sum(base_datasets[dataset]['runtimes']) / 1000000.0)
+                runtime = int(np.mean(base_datasets[dataset]['runtimes']))
+                best_times[dataset] = runtime
+                best_versions[dataset] = conf
+                execution_cache[compute_execution_path(conf)][dataset] = runtime
 
-        dataset_runtimes = [ sum(base_datasets[dataset]['runtimes']) / 1000000.0
-                                for dataset in base_datasets ]
+                baseline_times[dataset] = runtime
+                
+            except:
+                dataset_runtimes.append(np.inf)
+                best_times[dataset] = np.inf
+                best_versions[dataset] = conf
+                execution_cache[compute_execution_path(conf)][dataset] = np.inf
+                baseline_times[dataset] = 1000000
+         
+        #dataset_runtimes = [ sum(base_datasets[dataset]['runtimes']) / 1000000.0
+        #                        for dataset in base_datasets ]
 
         overhead = (wall_duration - (sum(dataset_runtimes) / len(dataset_runtimes))) + 1
         print("Overhead: {}".format(overhead))
-
-        best_times = {}
-        best_versions = {}
-        execution_cache[compute_execution_path(conf)] = {}
-        baseline_times = {}
-
-        for dataset in base_datasets:
-            runtime = int(np.mean(base_datasets[dataset]['runtimes']))
-            best_times[dataset] = runtime
-            best_versions[dataset] = conf
-            execution_cache[compute_execution_path(conf)][dataset] = runtime
-
-            baseline_times[dataset] = runtime
 
     # Little trick to allow for nice printing in some cases.
     def backspace(n):
@@ -642,7 +657,7 @@ for program in programs:
         best_branch_version = {}
         best_branch_time = {}
         for dataset in datasets: 
-            best_branch_time[dataset] = 999999999999999
+            best_branch_time[dataset] = np.inf
 
         # Loop over every code-version in this branch.
         for j, current_version in enumerate(branch_versions[::-1]):
@@ -725,7 +740,7 @@ for program in programs:
                     except:
                         #It timed out on this dataset
                         #print("Timed out on dataset {}".format(dataset))
-                        total_time += 2.0
+                        total_time += np.inf
                         
         # Modify the base version to use the new "better" version.
         # Also update the baseline-times to be the one for this new baseline configuration
@@ -782,7 +797,8 @@ for program in programs:
             if name in conflicts and name in merged_ranges: 
                 # Tie breaking strategy:
                 # Simply run both options, and take the best of the two. 
-                best_option_time = 9999999999
+                best_option_time = np.inf
+                best_option = conflicts[name][0][1]
                 for (name, option) in conflicts[name]: 
                     conf = dict(base_conf) #Copy baseline values
                     conf[name] = option 
@@ -829,7 +845,7 @@ for program in programs:
                             except:
                                 #It timed out on this dataset
                                 #print("Timed out on dataset {}".format(dataset))
-                                total_time += 2.0
+                                total_time += np.inf
                                                             
                         if total_time < best_option_time:
                             best_option_time = total_time
@@ -977,7 +993,7 @@ for program in programs:
                 conf = dict(final_conf) #Copy the "fixed" values
 
                 best_threshold_value = 0
-                best_threshold_time  = 9999999999999
+                best_threshold_time  = np.inf
 
                 for k, current_option in enumerate(options[optionPosition]):
                     name, val = current_option
@@ -1015,7 +1031,7 @@ for program in programs:
                             except:
                                 # It timed out on this dataset
                                 # This means I add the total "best" to this one, as it can't be better anyway.
-                                total_time += best_times[dataset] * 5
+                                total_time += np.inf
 
                     # Update "best" overall version.
                     if total_time < best_branch_time:
@@ -1033,7 +1049,7 @@ for program in programs:
 
     best_tile = 16
 
-    best_tile_time = 99999999999999999999
+    best_tile_time = np.inf
 
     tiles = [4, 8, 16, 32, 64, 256, 1024, 4096]
 
@@ -1062,7 +1078,7 @@ for program in programs:
                 except:
                     # It timed out on this dataset
                     # This means I add the total "best" to this one, as it can't be better anyway.
-                    total_time += best_times[dataset] * 2
+                    total_time += np.inf
 
             if total_time < best_tile_time:
                 print("Chose new best tile-size at {} with {} compared to old {}".format(tile, total_time, best_tile_time))
