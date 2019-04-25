@@ -1,3 +1,9 @@
+# My additions
+*.c
+*.dat
+*.actual
+*.expected
+
 # Prerequisites
 *.d
 
