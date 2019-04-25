@@ -216,7 +216,7 @@ def futhark_bench_cmd(cfg, json, times, tile):
 # Quick command to calculate the current timeout, based on the longest "best" time so far. ( + 1 second, since Futhark is very weird)
 def compute_timeout(best):
     global overhead
-    return int((np.amax(best.values()) * 10) / 1000000.0) + int(overhead) # Multiplied by 10 because that is the number of runs in benchmarks.
+    return int((np.amax(best.values()) * 20) / 1000000.0) + int(overhead) # Multiplied by 10 because that is the number of runs in benchmarks.
 
 # Function to extract names of thresholds in just one branch.
 def extract_names(tree_list):
@@ -586,7 +586,7 @@ def futhark_autotune_program(program):
                 dataset_runtimes.append(sum(base_datasets[dataset]['runtimes']) / 1000000.0)
                 runtime = int(np.mean(base_datasets[dataset]['runtimes']))
 
-                baseline_times[dataset] = runtime
+                baseline_times[dataset] = runtime * 2
                 
             except:
                 print("NO-TUNED BENCHMARK FAILED!")
@@ -608,7 +608,10 @@ def futhark_autotune_program(program):
 
         for dataset in datasets:
             print("Thresholds[{}][{}]: {}".format(dataset, name, thresholds[dataset][name]))
-            param_list.append(thresholds[dataset][name][0])
+            if len(thresholds[dataset][name]) == 0:
+                continue
+            else:
+                param_list.append(thresholds[dataset][name][0])
 
         initial_thresholds.append(int(np.mean(param_list)))
 
@@ -664,7 +667,16 @@ else:
     
 for program in programs:
     results.append(futhark_autotune_program(program))
-        
+
+print("")
+print("")
+print("")
+print_str = "# FINISHED RUNNING {} BENCHMARKS #".format(len(programs))
+print("#" + '=' * (len(print_str) - 2) + "#")
+print(print_str)
+print("#" + '=' * (len(print_str) - 2) + "#")
+
+
 for i, program in enumerate(programs):
     print("")
     print("Final command for target program " + program[:-4])

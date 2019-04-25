@@ -216,7 +216,7 @@ def futhark_bench_cmd(cfg, json, times, tile):
 # Quick command to calculate the current timeout, based on the longest "best" time so far. ( + 1 second, since Futhark is very weird)
 def compute_timeout(best):
     global overhead
-    return int((np.amax(best.values()) * 10) / 1000000.0) + int(overhead) # Multiplied by 10 because that is the number of runs in benchmarks.
+    return int((np.amax(best.values()) * 20) / 1000000.0) + int(overhead) # Multiplied by 10 because that is the number of runs in benchmarks.
 
 # Function to extract names of thresholds in just one branch.
 def extract_names(tree_list):
@@ -592,7 +592,7 @@ def futhark_autotune_program(program):
                 dataset_runtimes.append(sum(base_datasets[dataset]['runtimes']) / 1000000.0)
                 runtime = int(np.mean(base_datasets[dataset]['runtimes']))
 
-                baseline_times[dataset] = runtime
+                baseline_times[dataset] = runtime * 2
                 
             except:
                 print("NO-TUNED BENCHMARK FAILED!")
@@ -614,7 +614,10 @@ def futhark_autotune_program(program):
 
         for dataset in datasets:
             print("Thresholds[{}][{}]: {}".format(dataset, name, thresholds[dataset][name]))
-            param_list.append(thresholds[dataset][name][0])
+            if len(thresholds[dataset][name]) == 0:
+                continue
+            else:
+                param_list.append(thresholds[dataset][name][0])
 
         baseline.append(int(np.mean(param_list)))
 
@@ -634,11 +637,10 @@ def futhark_autotune_program(program):
         depth_before = 0
         for j in range(i):
             depth_before += len(extract_names([branch_tree[j]]))
-        depth_after = numThresholds - (depth + depth_before)
 
         baseconf = {}
         for j, (name, val) in enumerate(zip(threshold_names, baseline[:-1])):
-            if j < depth_before or j > depth_before + depth:
+            if j < depth_before or j > depth_before + depth - 1:
                 baseconf[name] = val
     
         branch_threshold_names = threshold_names[depth_before:depth_before+depth]
