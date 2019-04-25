@@ -803,10 +803,13 @@ for program in programs:
 
                     path = compute_execution_path(conf)
                     if path in execution_cache:
-
                         total_time = 0
                         for dataset in datasets:
-                            runtime = execution_cache[path][dataset]
+                            if dataset in execution_cache[path]:
+                                runtime = execution_cache[path][dataset]
+                            else:
+                                runtime = np.inf
+
                             total_time += runtime
 
                             if runtime < best_times[dataset]:
@@ -1265,7 +1268,7 @@ for i, program in enumerate(programs):
     (time_taken, bench_cmd) = script_results[i]
     print("")
     print("Final command for target program {}, took {}s".format(program[:-4], int(time_taken)))
-    print(bench_cmd)
+    print(bench_cmd.replace(' --exclude-case=notune ', ' '))
 
 
 
