@@ -437,6 +437,7 @@ for program in programs:
 
     # Log the start-time, used in logging.
     start = time.time()
+    num_executed = 0
 
     # Compile the target program.
     compile_cmd = 'futhark opencl {}'.format(program)
@@ -586,6 +587,7 @@ for program in programs:
         print("Starting first Benchmark")
         bench_cmd = futhark_bench_cmd(conf, json_tmp, None, None)
 
+        num_executed += 1
         wall_start = time.time()
         call_program(bench_cmd)
         wall_duration = time.time() - wall_start
@@ -702,6 +704,7 @@ for program in programs:
             with tempfile.NamedTemporaryFile() as json_tmp:
                 bench_cmd = futhark_bench_cmd(conf, json_tmp, best_times, None)
 
+                num_executed += 1
                 call_program(bench_cmd)
 
                 json_data = json.load(json_tmp)
@@ -737,7 +740,6 @@ for program in programs:
                         #It timed out on this dataset, or produced wrong results
                         print("Timed out / failed on dataset {}".format(dataset))
                         total_time += np.inf
-
 
         print("Finished branch-run, trying to merge ranges.")
         # Modify the base version to use the new "better" version.
@@ -785,7 +787,7 @@ for program in programs:
                 base_conf[name] = merged_ranges[name]['max'] #Just choose one, since both are "good" probably.
                 conflicts[name].append((name, merged_ranges[name]['min']))
             else:
-                base_conf[name] = int((merged_ranges[name]['max']))
+                base_conf[name] = int(merged_ranges[name]['max'])
 
 
         for name in branch_names[::-1]:
@@ -829,23 +831,10 @@ for program in programs:
                     else:
                         execution_cache[path] = {}
 
-
-                    #if compute_execution_path(conf) in execution_cache:
-                    #    print("SKIPPED EXECUTION")
-                    #    cached_dict = execution_cache[compute_execution_path(conf)]
-
-                    #    total_time = 0
-
-                    #    total_time = np.sum([runtime / float(baseline_times[dataset] * 100) for (dataset, runtime) in cached_dict.items()])
-
-                    #    if total_time < best_option_time:
-                    #        best_option_time = total_time
-                    #        best_option = option
-                    #    continue
-
                     with tempfile.NamedTemporaryFile() as json_tmp:
                         bench_cmd = futhark_bench_cmd(conf, json_tmp, best_times, None)
 
+                        num_executed += 1
                         call_program(bench_cmd)
 
                         json_data = json.load(json_tmp)
@@ -1051,7 +1040,7 @@ for program in programs:
                             else:
                                 bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
 
-
+                            num_executed += 1
                             call_program(bench_cmd)
 
                             json_data = json.load(json_tmp)
@@ -1112,7 +1101,7 @@ for program in programs:
                             else:
                                 bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
 
-
+                            num_executed += 1
                             call_program(bench_cmd)
 
                             json_data = json.load(json_tmp)
@@ -1151,71 +1140,20 @@ for program in programs:
                 final_conf[name] = best_threshold_value
 
 
-#                for k, current_option in enumerate(options[optionPosition]):
-#                    name, val = current_option
-#                    print("[{}s] Trying value {} for threshold {}".format( int(time.time() - start), val, name ))
-#
-#                    # Update the specific conflict-threshold's value to this possible option.
-#                    conf[name] = val
-#
-#                    # Run the benchmark.
-#                    with tempfile.NamedTemporaryFile() as json_tmp:
-#                        if i == 0:
-#                            bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
-#                        else:
-#                            bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
-#
-#
-#                        call_program(bench_cmd)
-#
-#                        json_data = json.load(json_tmp)
-#
-#                        results = json_data[program]['datasets']
-#
-#                        # This time using total aggregate runtime.
-#                        # This was chosen since earlier we optimized based on datasets, and here we don't.
-#                        # (Aggregate runtime favours longer-running datasets)
-#                        total_time = 0
-#                        for dataset in results:
-#                            try:
-#                                runtime = int(np.mean(results[dataset]['runtimes']))
-#
-#                                total_time +=  runtime
-#
-#                                #print("[{}s] Dataset {} ran in {}".format(int(time.time() - start), dataset, runtime))
-#
-#                            except:
-#                                # It timed out on this dataset
-#                                # This means I add the total "best" to this one, as it can't be better anyway.
-#                                total_time += np.inf
-#
-#                    # Update "best" overall version.
-#                    if total_time < best_branch_time:
-#                        best_branch_time = total_time
-#                        best_branch = conf
-#
-#                    # Update "best" current threshold value
-#                    if total_time < best_threshold_time:
-#                        print("Current best {} is {} with {}".format(name, val, total_time))
-#                        best_threshold_time = total_time
-#                        best_threshold_value = val
-#
-#                print("Chose the following threshold for {} : {}".format(name, best_threshold_value))
-#                final_conf[name] = best_threshold_value
-
     best_tile = 16
 
     best_tile_time = np.inf
 
     print("Skipping tile-calib, just debug")
-    """
-    tiles = [4, 8, 16, 32, 64, 256, 1024, 4096]
+    
+    tiles = [4, 8, 16, 32, 64]
 
     print("[{}s]Starting Tile-Size Calibration: {}".format(int(time.time() - start), tiles))
     for tile in tiles:
         print("[{}s] Trying Tile: {}".format(int(time.time() - start), tile))
         with tempfile.NamedTemporaryFile() as json_tmp:
             bench_cmd = futhark_bench_cmd(final_conf, json_tmp, None, tile)
+            num_executed += 1
             call_program(bench_cmd)
 
             json_data = json.load(json_tmp)
@@ -1241,13 +1179,14 @@ for program in programs:
             if total_time < best_tile_time:
                 print("Chose new best tile-size at {} with {} compared to old {}".format(tile, total_time, best_tile_time))
                 best_tile = tile
-                best_tile_time = total_time"""
+                best_tile_time = total_time
 
 
 
     print("Best Tile: {}".format(best_tile))
 
 
+    print("Performed {} benchmarks".format(num_executed))
 
     # Report the results.
     print("FINAL BENCH COMMAND:")
@@ -1256,7 +1195,7 @@ for program in programs:
     else:
         print(futhark_bench_cmd(final_conf, None, None, best_tile))
 
-    script_results.append((time.time() - start,futhark_bench_cmd(final_conf, None, None, best_tile)))
+    script_results.append( (time.time() - start, futhark_bench_cmd(final_conf, None, None, best_tile), num_executed) )
 
 print("")
 print_str = "# FINISHED RUNNING {} BENCHMARKS #".format(len(programs))
@@ -1265,9 +1204,9 @@ print(print_str)
 print("#" + '=' * (len(print_str) - 2) + "#")
 
 for i, program in enumerate(programs):
-    (time_taken, bench_cmd) = script_results[i]
+    (time_taken, bench_cmd, num_executed) = script_results[i]
     print("")
-    print("Final command for target program {}, took {}s".format(program[:-4], int(time_taken)))
+    print("Final command for target program {}, took {}s, with {} executions".format(program[:-4], int(time_taken), num_executed))
     print(bench_cmd.replace(' --exclude-case=notune ', ' '))
 
 
@@ -1276,20 +1215,21 @@ for i, program in enumerate(programs):
 #===============#
 # NOTES SECTION #
 #===============#
-Final command for target program srad, took 162s (Perfect)
-futhark bench --skip-compilation --exclude-case=notune srad.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_outer_par_0=1026 --pass-option --size=main.suff_intra_par_1=1024 --pass-option --size=main.suff_intra_par_5=1026 --pass-option --size=main.suff_outer_par_4=1026
 
-Final command for target program LocVolCalib, took 176s (Perfect)
-futhark bench --skip-compilation --exclude-case=notune LocVolCalib.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_intra_par_7=385 --pass-option --size=main.suff_intra_par_5=385 --pass-option --size=main.suff_intra_par_17=385 --pass-option --size=main.suff_intra_par_9=256 --pass-option --size=main.suff_outer_par_6=385 --pass-option --size=main.suff_outer_par_4=385 --pass-option --size=main.suff_outer_par_8=32768 --pass-option --size=main.suff_outer_par_16=4096
+Final command for target program srad, took 91s (Perfect)
+futhark bench --skip-compilation srad.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_outer_par_0=1026 --pass-option --size=main.suff_intra_par_1=1024 --pass-option --size=main.suff_intra_par_5=1026 --pass-option --size=main.suff_outer_par_4=1026
 
-Final command for target program bfast-ours, took 1186s (Almost-perfect, but not quite)
-futhark bench --skip-compilation --exclude-case=notune bfast-ours.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_outer_par_38=16384 --pass-option --size=main.suff_outer_par_29=167335 --pass-option --size=main.suff_outer_par_23=131072 --pass-option --size=main.suff_outer_par_33=16384 --pass-option --size=main.suff_outer_par_21=167335 --pass-option --size=main.suff_outer_par_35=111557 --pass-option --size=main.suff_outer_par_27=8388608 --pass-option --size=main.suff_outer_par_25=167335 --pass-option --size=main.suff_outer_par_10=1048576 --pass-option --size=main.suff_outer_par_17=111557 --pass-option --size=main.suff_outer_par_19=131072 --pass-option --size=main.suff_intra_par_7=13 --pass-option --size=main.suff_intra_par_11=769 --pass-option --size=main.suff_intra_par_13=128 --pass-option --size=main.suff_intra_par_9=13 --pass-option --size=main.suff_intra_par_36=115 --pass-option --size=main.suff_intra_par_24=13 --pass-option --size=main.suff_intra_par_34=128 --pass-option --size=main.suff_intra_par_26=1025 --pass-option --size=main.suff_intra_par_20=769 --pass-option --size=main.suff_intra_par_30=235 --pass-option --size=main.suff_intra_par_22=9 --pass-option --size=main.suff_intra_par_18=13 --pass-option --size=main.suff_outer_par_8=1338673 --pass-option --size=main.suff_intra_par_39=128 --pass-option --size=main.suff_intra_par_28=13 --pass-option --size=main.suff_outer_par_6=167335
+Final command for target program LocVolCalib, took 93s (Perfect)
+futhark bench --skip-compilation LocVolCalib.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_intra_par_7=385 --pass-option --size=main.suff_intra_par_5=385 --pass-option --size=main.suff_intra_par_17=385 --pass-option --size=main.suff_intra_par_9=256 --pass-option --size=main.suff_outer_par_6=385 --pass-option --size=main.suff_outer_par_4=385 --pass-option --size=main.suff_outer_par_8=32768 --pass-option --size=main.suff_outer_par_16=4096
 
-Final command for target program variant, took 267s (Perfect)
-futhark bench --skip-compilation --exclude-case=notune variant.fut --pass-option --default-tile-size=4096 --pass-option --size=main.suff_outer_par_3=1024 --pass-option --size=main.suff_intra_par_4=131072 --pass-option --size=main.suff_outer_par_0=1025 --pass-option --size=main.suff_intra_par_1=1025
+Final command for target program bfast-ours, took 1139s (Near-Perfect?)
+futhark bench --skip-compilation bfast-ours.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_outer_par_38=111557 --pass-option --size=main.suff_outer_par_29=167335 --pass-option --size=main.suff_outer_par_23=131072 --pass-option --size=main.suff_outer_par_33=111557 --pass-option --size=main.suff_outer_par_21=32768 --pass-option --size=main.suff_outer_par_35=16384 --pass-option --size=main.suff_outer_par_27=8388608 --pass-option --size=main.suff_outer_par_25=167335 --pass-option --size=main.suff_outer_par_10=1048576 --pass-option --size=main.suff_outer_par_17=111557 --pass-option --size=main.suff_outer_par_19=131072 --pass-option --size=main.suff_intra_par_7=13 --pass-option --size=main.suff_intra_par_11=769 --pass-option --size=main.suff_intra_par_13=128 --pass-option --size=main.suff_intra_par_9=13 --pass-option --size=main.suff_intra_par_36=76 --pass-option --size=main.suff_intra_par_24=13 --pass-option --size=main.suff_intra_par_34=113 --pass-option --size=main.suff_intra_par_26=256 --pass-option --size=main.suff_intra_par_20=769 --pass-option --size=main.suff_intra_par_30=235 --pass-option --size=main.suff_intra_par_22=8 --pass-option --size=main.suff_intra_par_18=13 --pass-option --size=main.suff_outer_par_8=1338673 --pass-option --size=main.suff_intra_par_39=122 --pass-option --size=main.suff_intra_par_28=13 --pass-option --size=main.suff_outer_par_6=167335
 
-Final command for target program lud-clean, took 614s (Perfect)
-futhark bench --skip-compilation --exclude-case=notune lud-clean.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_intra_par_16=24 --pass-option --size=main.suff_outer_par_13=128 --pass-option --size=main.suff_outer_par_17=258065 --pass-option --size=main.suff_intra_par_20=24 --pass-option --size=main.suff_outer_par_15=16130 --pass-option --size=main.suff_intra_par_18=24 --pass-option --size=main.suff_intra_par_14=7 --pass-option --size=main.suff_outer_par_19=4096
+Final command for target program variant, took 203s (Perfect)
+futhark bench --skip-compilation variant.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_outer_par_3=1024 --pass-option --size=main.suff_intra_par_4=1048577 --pass-option --size=main.suff_outer_par_0=1025 --pass-option --size=main.suff_intra_par_1=1025
+
+Final command for target program lud-clean, took 492s (Perfect)
+futhark bench --skip-compilation lud-clean.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_intra_par_16=24 --pass-option --size=main.suff_outer_par_13=128 --pass-option --size=main.suff_outer_par_17=258065 --pass-option --size=main.suff_intra_par_20=24 --pass-option --size=main.suff_outer_par_15=16130 --pass-option --size=main.suff_intra_par_18=24 --pass-option --size=main.suff_intra_par_14=9 --pass-option --size=main.suff_outer_par_19=9216
 
 
 #================#
