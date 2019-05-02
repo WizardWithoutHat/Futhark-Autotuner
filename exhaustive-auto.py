@@ -55,6 +55,7 @@ def extract_thresholds_and_values(program):
         # Saves important info to a temporary JSON file.
         val_cmd = 'futhark bench {} --exclude-case=notune --backend=opencl --skip-compilation --pass-option=-L --runs=1 --json={}'.format(
             program, json_tmp.name)
+        
         val_res = call_program(val_cmd)
 
         json_data = json.load(json_tmp, object_pairs_hook=OrderedDict)
@@ -157,7 +158,7 @@ def extract_thresholds_and_values(program):
 
     branch_list = list(branch_info.items())
     i = 0 # we need id to generate unique ids
-
+   
     branch_tree = []
 
     # the list below keeps track of processed parameters,
@@ -183,7 +184,7 @@ def extract_thresholds_and_values(program):
         else:
             branch_list.append((pname, pdeps))
 
-    return (datasets, thresholds, values, branch_tree)
+    return (datasets, thresholds, values, branch_tree, branch_info)
 
 # Command to compute bench command to call using sys.
 # (From old AutoTuner)
@@ -408,6 +409,11 @@ def compute_execution_path_branch(branch, threshold_conf, letter, dataset):
 
             return res_string
 
+# Check if Threshold name 1 is dependent on Threshold name 2 being False.
+def dependency_check(T1, T2, dependency_list):
+    return (T2 in dependency_list[T1])
+
+
 #============#
 # THE SCRIPT #
 #============#=========================================================#
@@ -450,7 +456,7 @@ for program in programs:
     # Names of all datasets and thresholds.
     # Values of all threshold comparisons.
     # Branch-tree information for dependencies between thresholds.
-    (datasets, thresholds, values, branch_tree) = extract_thresholds_and_values(program)
+    (datasets, thresholds, values, branch_tree, dependency_info) = extract_thresholds_and_values(program)
 
     print("Finished extraction.")
 
@@ -754,6 +760,22 @@ for program in programs:
                 name = branch_names[i]
                 val = thresholds[dataset][name][0]
 
+                skipFlag = False
+                for TName, T in zip(branch_names[:i], version[:i]):
+                    if not T:
+                        continue
+                    
+                    if dependency_check(name, TName, dependency_info):
+                        # This means no matter what choice I make, the version has already been chosen so to say.
+                        threshold_ranges[dataset][name]['min'] = 1
+                        threshold_ranges[dataset][name]['max'] = base_conf[name]
+                        skipFlag = True
+                        break 
+                
+                if skipFlag:
+                    skipFlag = False
+                    continue
+                    
                 # Use that value as the new min/max depending on whether this threshold was true or not.
                 if(thresh):
                     # This was set to True in the configuration
@@ -765,7 +787,6 @@ for program in programs:
                     # This means, t > Param had to be correct.
                     threshold_ranges[dataset][name]['min'] = val + 1
                     threshold_ranges[dataset][name]['max'] = base_conf[name] + 1
-
 
         # These are simply the maximum and minimum of all threshold-values, across all datasets.
         for ranges in threshold_ranges.values():
@@ -1463,5 +1484,22 @@ Loop over number of branches?
       'name': 'main.suff_intra_par_7'}],
  True: [{'name': 'end', 'id': 16}],
  'name': 'main.suff_outer_par_6'}]
+
+
+Final command for target program srad, took 175s, with 11 executions
+futhark bench --skip-compilation srad.fut --pass-option --default-tile-size=64 --pass-option --size=main.suff_outer_par_0=1026 --pass-option --size=main.suff_intra_par_1=1025 --pass-option --size=main.suff_intra_par_5=1026 --pass-option --size=main.suff_outer_par_4=1026
+
+Final command for target program LocVolCalib, took 184s, with 17 executions
+futhark bench --skip-compilation LocVolCalib.fut --pass-option --default-tile-size=4 --pass-option --size=main.suff_intra_par_7=385 --pass-option --size=main.suff_intra_par_5=385 --pass-option --size=main.suff_intra_par_17=384 --pass-option --size=main.suff_intra_par_9=256 --pass-option --size=main.suff_outer_par_6=385 --pass-option --size=main.suff_outer_par_4=385 --pass-option --size=main.suff_outer_par_8=32768 --pass-option --size=main.suff_outer_par_16=4096
+
+Final command for target program bfast-ours, took 1223s, with 44 executions
+futhark bench --skip-compilation bfast-ours.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_outer_par_38=65537 --pass-option --size=main.suff_outer_par_29=167335 --pass-option --size=main.suff_outer_par_23=131072 --pass-option --size=main.suff_outer_par_33=16384 --pass-option --size=main.suff_outer_par_21=32768 --pass-option --size=main.suff_outer_par_35=67969 --pass-option --size=main.suff_outer_par_27=8388608 --pass-option --size=main.suff_outer_par_25=167335 --pass-option --size=main.suff_outer_par_10=1048576 --pass-option --size=main.suff_outer_par_17=111557 --pass-option --size=main.suff_outer_par_19=131072 --pass-option --size=main.suff_intra_par_7=13 --pass-option --size=main.suff_intra_par_11=768 --pass-option --size=main.suff_intra_par_13=128 --pass-option --size=main.suff_intra_par_9=13 --pass-option --size=main.suff_intra_par_36=21 --pass-option --size=main.suff_intra_par_24=12 --pass-option --size=main.suff_intra_par_34=113 --pass-option --size=main.suff_intra_par_26=512 --pass-option --size=main.suff_intra_par_20=768 --pass-option --size=main.suff_intra_par_30=235 --pass-option --size=main.suff_intra_par_22=8 --pass-option --size=main.suff_intra_par_18=12 --pass-option --size=main.suff_outer_par_8=1338673 --pass-option --size=main.suff_intra_par_39=128 --pass-option --size=main.suff_intra_par_28=12 --pass-option --size=main.suff_outer_par_6=167335
+
+Final command for target program variant, took 249s, with 22 executions
+futhark bench --skip-compilation variant.fut --pass-option --default-tile-size=32 --pass-option --size=main.suff_outer_par_3=1024 --pass-option --size=main.suff_intra_par_4=4096 --pass-option --size=main.suff_outer_par_0=1025 --pass-option --size=main.suff_intra_par_1=1025
+
+Final command for target program lud-clean, took 553s, with 44 executions
+futhark bench --skip-compilation lud-clean.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_intra_par_16=24 --pass-option --size=main.suff_outer_par_13=128 --pass-option --size=main.suff_outer_par_17=254016 --pass-option --size=main.suff_intra_par_20=24 --pass-option --size=main.suff_outer_par_15=16130 --pass-option --size=main.suff_intra_par_18=24 --pass-option --size=main.suff_intra_par_14=15 --pass-option --size=main.suff_outer_par_19=1024
+
 
  """
