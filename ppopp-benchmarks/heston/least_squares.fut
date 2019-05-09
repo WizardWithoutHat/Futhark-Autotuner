@@ -29,12 +29,12 @@ module type least_squares = {
   -- mutations to attempt per iteration.  `num_observed` is the size
   -- of the number of observations (used for computing the error).
   --
-  val least_squares [num_vars] 
-	           :  (objective: [num_vars]real -> real)
+  val least_squares [num_vars]
+                   :  [num_vars]optimization_variable
+                   -> (objective: [num_vars]real -> real)
                    -> (max_global: i32) -> (np: i32)
-                   -> [num_vars]optimization_variable
                    -> (num_observed: i32)
-                   -> calibration_result [num_vars]
+                   -> *calibration_result [num_vars]
 }
 
 module mk_least_squares (real: real) (rand: rng_engine)
@@ -120,7 +120,7 @@ module mk_least_squares (real: real) (rand: rng_engine)
              in map init_i rss)
     let fx = map objective' x
     let (fx0, best_idx) =
-      reduce_comm min_and_idx (real.inf, 0) (zip fx (iota np))
+      reduce_comm min_and_idx (real.inf, 0) (zip (opaque fx) (iota np))
 
     let mutation (difw: real) (best_idx: i32) (x: [np][num_free_vars]real)
                  (rng: rand.rng) (i :i32) (x_i: [num_free_vars]real) =
@@ -157,7 +157,7 @@ module mk_least_squares (real: real) (rand: rng_engine)
        let (fx0', best_idx') =
          reduce_comm min_and_idx
                     (fx0, best_idx)
-                    (zip f_v (iota np))
+                    (zip (opaque f_v) (iota np))
        in (fx0', best_idx', fx', x'))
 
     -- We are not counting the numer of invocations of the objective
@@ -182,12 +182,12 @@ module mk_least_squares (real: real) (rand: rng_engine)
     in {x0=x0, f=fx0, num_feval=ncalls, status=status}
 
   let least_squares [num_vars]
+      (variables: [num_vars]optimization_variable)
       (objective: []real -> real)
       (max_global: i32)
       (np: i32)
-      (variables: [num_vars]optimization_variable)
       (num_observed: i32)
-      : calibration_result [num_vars] =
+      : *calibration_result [num_vars] =
     let (free_vars_to_vars, free_vars) =
       unzip (filter (\(_, (fixed, _, _)) -> !fixed) (zip (iota num_vars) variables))
     let num_free_vars = length free_vars
@@ -212,6 +212,6 @@ module mk_least_squares (real: real) (rand: rng_engine)
     let err = objective (active_vars vars_to_free_vars variables x)
 
     in {parameters = active_vars vars_to_free_vars variables x,
-        root_mean_squared_error = rms_of_error err,
+        root_mean_squared_error = copy (rms_of_error err),
         num_feval = num_feval}
 }

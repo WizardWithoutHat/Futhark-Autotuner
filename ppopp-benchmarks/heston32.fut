@@ -1,17 +1,17 @@
 -- | Heston calibration with single-precision floats.
 --
 -- ==
--- compiled input @ heston32-data/train-1162-quotes.in
--- compiled input @ heston32-data/train-9000-quotes.in
+-- notne compiled input @ heston/data/train-1162-quotes.in
+-- notne compiled input @ heston/data/train-9000-quotes.in
 --
--- notune compiled input @ heston32-data/1062_quotes.in
--- notune compiled input @ heston32-data/10000_quotes.in
-
+-- notne compiled input @ heston/data/1062_quotes.in
+-- notne compiled input @ heston/data/10000_quotes.in
+-- notne compiled input @ heston/data/100000_quotes.in
 
 import "lib/github.com/diku-dk/cpprandom/random"
 import "heston/heston"
 
-module heston32 = heston f32 pcg32
+module heston32 = heston f32 minstd_rand
 
 -- We still read the data sets as double precision, and initially
 -- convert them to single.  This is included in measurements, but

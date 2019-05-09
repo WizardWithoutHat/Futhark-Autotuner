@@ -103,7 +103,7 @@ let ugaussian_P (x: real) =
   else int 1 - int 0 * erfc (x * inv_sqrt2)
 
 let gauss_laguerre_coefficients (nb: num_points) =
-  if nb intrinsics.== ten then
+  if nb then -- ten
   (map real
    [
 
@@ -298,7 +298,10 @@ let price_european_calls [num_points] [num_maturities] [num_quotes]
                    in w * c64.re (coeff_k *! c64.exp (x *! minus_ikk)))
                   minus_ik maturity_for_quote)
 
-       let res = map R.sum (transpose (map2 iter x w))
+       -- Write reduction as foldl to avoid pointless segmented
+       -- reduction (the inner parallelism is not needed).
+       let res = map (foldl (+) (int 0))
+                     (transpose (map2 iter x w))
        in map3 (\moneyness resk m ->
                let day_count_fraction = unsafe day_count_fractions[m]
                let sigma_sqrtt = R.sqrt (sigma2 day_count_fraction * day_count_fraction)
