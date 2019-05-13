@@ -55,7 +55,7 @@ def extract_thresholds_and_values(program):
         # Saves important info to a temporary JSON file.
         val_cmd = 'futhark bench {} --exclude-case=notune --backend=opencl --skip-compilation --pass-option=-L --runs=1 --json={}'.format(
             program, json_tmp.name)
-        
+
         val_res = call_program(val_cmd)
 
         json_data = json.load(json_tmp, object_pairs_hook=OrderedDict)
@@ -158,7 +158,7 @@ def extract_thresholds_and_values(program):
 
     branch_list = list(branch_info.items())
     i = 0 # we need id to generate unique ids
-   
+
     branch_tree = []
 
     # the list below keeps track of processed parameters,
@@ -213,7 +213,7 @@ def compute_timeout(best):
 
 
 # Function to extract names of thresholds in just one branch.
-def extract_names(tree_list):
+def extract_names_OLD(tree_list):
     all_names = []
 
     # Since there can be multiple independent branches, each is dealt with independently.
@@ -260,19 +260,279 @@ def depth_of_branch(tree, depth):
     if tree['name'] == 'end':
         return depth
     else:
-        return depth_of_branch(tree[False][0],depth + 1)
+        for branch in tree[True]:
+            depth = max(depth, depth_of_branch(branch, depth + 1))
+
+        for branch in tree[False]:
+            depth = max(depth, depth_of_branch(branch, depth + 1))
+
+        return depth
+
+
+def get_depth_first_nodes(root):
+    nodes = []
+    stack = [root]
+    while stack:
+        cur_node = stack[0]
+        stack = stack[1:]
+        nodes.append(cur_node)
+        for child in cur_node.get_rev_children():
+            stack.insert(0, child)
+    return nodes
+
+"""
+
+Threshold Names DEPTH:
+['main.suff_outer_stream_0', 'main.suff_outer_par_1', 'main.suff_intra_par_2', 'main.suff_outer_redomap_8', 'main.suff_outer_par_9', 'main.suff_intra_par_10', 'main.suff_outer_par_11', 'main.suff_intra_par_12', 'main.suff_outer_par_13', 'main.suff_intra_par_14', 'main.suff_outer_par_20', 'main.suff_intra_par_21', 'main.suff_outer_par_6', 'main.suff_intra_par_7', 'main.suff_outer_par_3', 'main.suff_intra_par_4']
+[[True, True, False, False, False, False, False, False, False, False, False, False, False, False, False, False],
+[True, False, True, False, False, False, False, False, False, False, False, False, False, False, False, False],
+[True, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False],
+[False, True, False, False, False, False, False, False, False, False, False, False],
+[False, False, True, False, False, False, False, False, False, False],
+[False, False, False, True, False, False, False, False, False, False],
+[False, False, False, False, True, False, False, False, False, False],
+[False, False, False, False, False, True, False, False, False, False],
+[False, False, False, False, False, False, True, False, False, False],
+[False, False, False, False, False, False, False, True, False, False],
+[False, False, False, False, False, False, False, False, False, False],
+[False, False, True, False, False, False],
+[False, False, False, True, False, False],
+[False, False, False, False, False, False],
+[False, True, False, False, False],
+[False, False, True, False, False],
+[False, False, False, False, False],
+[False, True, False, False, False],
+[False, False, True, False, False],
+[False, False, False, False, False]]
+
+
+"""
+def extract_names(branch):
+    names = []
+    stack = [branch]
+    while stack:
+        cur_node = stack[0]
+        stack = stack[1:]
+
+        if cur_node['name'] != 'end':
+            names.append(cur_node['name'])
+        else:
+            continue
+
+        for child in cur_node[False]:
+            stack.insert(0, child)
+        for child in cur_node[True]:
+            stack.insert(0, child)
+    return names
+
+def extract_versions(branch):
+    next_horizontal = 0
+    versions = []
+    stack = [(branch, [], [], -1)]
+    while stack:
+        cur_node, versions_before, version_after, horizontal = stack[0]
+        #print("{} had v_b {} and v_a {}".format(cur_node['name'], versions_before, version_after))
+
+        stack = stack[1:]
+
+        if horizontal == -1:
+            if cur_node['name'] == 'end':
+                if len(versions_before) != 0:
+                    for version in versions_before:
+                        versions.append(version + version_after)
+                        #print("ID {} delivered {} . . . {}".format(cur_node['id'], version, version_after))
+                else:
+                    versions.append(version_after)
+                continue
+
+            true_names  = sum([len(extract_names(true_branch )) for true_branch  in cur_node[True]])
+            false_names = sum([len(extract_names(false_branch)) for false_branch in cur_node[False]])
+
+            if len(cur_node[False]) == 1:
+                child = cur_node[False][0]
+
+                v_b = versions_before[:]
+
+                if len(v_b) != 0:
+                    for i, version in enumerate(v_b):
+                        v_b[i] = version + [False] + [False for x in range(true_names)]
+                else:
+                    v_b = [[False]]
+
+                stack.insert(0, (child, v_b, version_after, -1))
+            else:
+                for child in cur_node[False]:
+                    # Add the child, and mark it as a _horizontal_ one
+                    v_b = versions_before[:]
+                    if len(v_b) != 0:
+                        for i, version in enumerate(v_b):
+                            v_b[i] = version + [False] + [False for x in range(true_names)]
+                    else:
+                        v_b = [[False] + [False for x in range(true_names)]]
+
+                    stack.insert(0, (child, v_b, version_after, next_horizontal))
+                next_horizontal += 1
+
+            if len(cur_node[True]) == 1:
+                child = cur_node[True][0]
+
+                v_b = versions_before[:]
+
+                if len(v_b) != 0:
+                    for i, version in enumerate(v_b):
+                        v_b[i] = version + [True]
+                else:
+                    v_b = [[True]]
+
+                stack.insert(0, (child, v_b, [False for x in range(false_names)] + version_after, -1))
+            else:
+                for child in cur_node[True]:
+                    # Add the child, and mark it as a _horizontal_ one
+                    v_b = versions_before[:]
+                    if len(v_b) != 0:
+                        for i, version in enumerate(v_b):
+                            versions_before[i] = version + [True]
+                    else:
+                        v_b = [[True]]
+                    stack.insert(0, (child, v_b, [False for x in range(false_names)] + version_after, next_horizontal))
+                next_horizontal += 1
+        else:
+            # We are in a horizontal child!
+            #print("HORI")
+            #print(versions_before)
+            horizontal_versions = extract_versions(cur_node)
+
+            #print(horizontal_versions)
+
+            all_versions_before = []
+            for version1 in versions_before:
+                for version2 in horizontal_versions:
+                    all_versions_before.append(version1 + version2)
+
+
+
+            final_flag = True
+            for i, (node, v_b, v_a, h) in enumerate(stack):
+                if h == horizontal:
+                    final_flag = False
+                    # This one is part of the horizontal split that we are working on.
+                    # That means we have to give that one the information of all available versions in this one.
+                    stack[i] = (node, all_versions_before, v_a, h)
+
+            if final_flag:
+                # If this was the last of the horizontal children, we finish them.
+                # This branch is finished, so versions should be updated.
+                # All information is loaded into all_versions_before
+                for version in all_versions_before:
+                    #print("Horizontal {} delivered {} ... {}".format(horizontal, version, version_after))
+                    versions.append(version + version_after)
+
+    return versions
+
+
+
+"""
+[{False:
+    [{False:
+        [{False: [{'name': 'end', 'id': 13}],
+          True: [{'name': 'end', 'id': 12}],
+          'name': 'main.suff_intra_par_4'}],
+      True: [{'name': 'end', 'id': 4}],
+      'name': 'main.suff_outer_par_3'},
+     {False:
+        [{False: [{'name': 'end', 'id': 15}],
+          True: [{'name': 'end', 'id': 14}],
+         'name': 'main.suff_intra_par_7'}],
+      True: [{'name': 'end', 'id': 6}],
+     'name': 'main.suff_outer_par_6'},
+     {False:
+        [{False:
+            [{False: [{'name': 'end', 'id': 23}],
+              True: [{'name': 'end', 'id': 22}],
+             'name': 'main.suff_intra_par_21'}],
+          True: [{'name': 'end', 'id': 16}],
+         'name': 'main.suff_outer_par_20'},
+         {False:
+            [{False:
+                [{False:
+                    [{False:
+                        [{False:
+                            [{False: [{'name': 'end', 'id': 31}],
+                              True: [{'name': 'end', 'id': 30}],
+                             'name': 'main.suff_intra_par_14'}],
+                          True: [{'name': 'end', 'id': 28}],
+                         'name': 'main.suff_outer_par_13'}],
+                      True: [{'name': 'end', 'id': 26}],
+                     'name': 'main.suff_intra_par_12'}],
+                  True: [{'name': 'end', 'id': 24}],
+                 'name': 'main.suff_outer_par_11'}],
+              True: [{'name': 'end', 'id': 20}],
+             'name': 'main.suff_intra_par_10'}],
+           True: [{'name': 'end', 'id': 18}],
+          'name': 'main.suff_outer_par_9'}],
+      True: [{'name': 'end', 'id': 8}],
+     'name': 'main.suff_outer_redomap_8'}],
+ True:
+    [{False:
+        [{False: [{'name': 'end', 'id': 11}],
+          True: [{'name': 'end', 'id': 10}],
+          'name': 'main.suff_intra_par_2'}],
+      True: [{'name': 'end', 'id': 2}],
+     'name': 'main.suff_outer_par_1'}],
+'name': 'main.suff_outer_stream_0'}]
+
+OrderedDict([(u'OptionPricing-data/train-D1.in', defaultdict(<type 'list'>, {
+u'main.suff_intra_par_7': [524288],
+u'main.suff_intra_par_4': [30],
+u'main.suff_intra_par_2': [65536],
+u'main.suff_outer_redomap_8': [524288],
+u'main.suff_outer_par_20': [1],
+main.suff_outer_par_11': [524288],
+main.suff_outer_par_3': [15],
+main.suff_intra_par_10': [1],
+main.suff_outer_par_1': [1],
+main.suff_intra_par_12': [3],
+main.suff_intra_par_14': [5],
+main.suff_outer_par_6': [15],
+main.suff_intra_par_21': [524288],
+main.suff_outer_par_9': [524288],
+main.suff_outer_par_13': [1572864],
+main.suff_outer_stream_0': [524288]})), (u'OptionPricing-data/train-D2.in', defaultdict(<type 'list'>, {
+u'main.suff_intra_par_7': [750],
+main.suff_intra_par_4': [30],
+main.suff_intra_par_2': [],
+main.suff_outer_redomap_8': [750],
+main.suff_outer_par_20': [1],
+main.suff_outer_par_11': [750],
+main.suff_outer_par_3': [1101],
+main.suff_intra_par_10': [1],
+main.suff_outer_par_1': [1],
+main.suff_intra_par_12': [3],
+main.suff_intra_par_14': [367],
+main.suff_outer_par_6': [1101],
+main.suff_intra_par_21': [750],
+main.suff_outer_par_9': [750],
+main.suff_outer_par_13': [2250],
+main.suff_outer_stream_0': [750]}))])
+
+
+"""
+
+
+
 
 # Function to extract all "versions" for a branch.
 # One version is a list of booleans, each corresponding to a threshold.
 # The resulting list-of-lists has one list pr. code-version possible in that branch.
 # This means running all of those "versions" results in exhaustive search.
-def extract_versions(depth, tree):
+def extract_versions_OLD(depth, tree):
     versions = []
 
     # If True leads to an end, the remaining thresholds are set to False.
     # This is because each "version" has to have a value for _every_ threshold.
     if tree[True][0]['name'] == 'end':
         versions.append([True] + [False for x in range(depth - 1)])
+
 
     # If there are multiple "false" paths, combinations of thresholds are neccesary.
     # This is because each of these paths are independent from each other, much like this one here.
@@ -281,7 +541,7 @@ def extract_versions(depth, tree):
         # Extract versions for each branch independently.
         for i, branch in enumerate(tree[False]):
             splits.append([])
-            res = extract_versions(depth_of_branch(branch, 0), branch)
+            res = extract_versions_OLD(depth_of_branch(branch, 0), branch)
             for v in res:
                 splits[i].append(v)
 
@@ -303,7 +563,7 @@ def extract_versions(depth, tree):
             versions.append([False])
         else:
             # If it was not the end, we recursively continue.
-            res = extract_versions(depth - 1, tree[False][0])
+            res = extract_versions_OLD(depth - 1, tree[False][0])
             for v in res:
                     versions.append([False] + v)
 
@@ -341,6 +601,15 @@ def compute_execution_path(threshold_conf):
 
     return result_string
 
+"""
+[{False: [{'name': 'end', 'id': 1}], 
+  True: [{'name': 'end', 'id': 0}], 
+ 'name': 'main.suff_intra_par_13'}, 
+ {False: [{'name': 'end', 'id': 3}], 
+  True: [{'name': 'end', 'id': 2}], 
+  'name': 'main.suff_intra_par_2'}]
+"""
+
 # Letter is used to differentiate the kind of version.
 # 'V' = Standard branch, default.
 # 'B' = Branching branch, aka one with multiple optimizations at the same layer.
@@ -348,8 +617,9 @@ def compute_execution_path(threshold_conf):
 # 'LE' = Looping Branch End.
 def compute_execution_path_branch(branch, threshold_conf, letter, dataset):
     node_name = branch['name']
+    
     threshold_value = threshold_conf[node_name]
-
+    
     global thresholds
     if len(thresholds[dataset][node_name]) == 1:
         threshold_comparison = threshold_value <= thresholds[dataset][node_name][0]
@@ -460,11 +730,14 @@ for program in programs:
 
     print("Finished extraction.")
 
-    # Find number of branches in the list
+    # Find number of branchesext in the list
     numBranches = len(branch_tree)
 
     # Extract all the thresholds names, for easier lookup into the dicts.
-    threshold_names = extract_names(branch_tree)
+    #threshold_names = extract_names(branch_tree)
+    threshold_names = []
+    for branch in branch_tree:
+        threshold_names = threshold_names + extract_names(branch)
 
     # Number of thresholds to optimize
     numThresholds = len(values.keys())
@@ -534,7 +807,8 @@ for program in programs:
         base_conf[name] = 1
 
         for dataset in datasets:
-            base_conf[name] = max(base_conf[name], thresholds[dataset][name][0])
+            if len(thresholds[dataset][name]) != 0:
+                base_conf[name] = max(base_conf[name], thresholds[dataset][name][0])
 
         base_conf[name] = int(base_conf[name] * 1.5)
 
@@ -546,23 +820,29 @@ for program in programs:
     #print(datasets)
     #print("")
 
-    #print("Thresholds: ")
-    #print(thresholds)
-    #print("")
+    print("Thresholds: ")
+    print(thresholds)
+    print("")
 
-    #print("Values: ")
-    #print(values)
-    #print("")
+    print("Values: ")
+    print(values)
+    print("")
 
-    #print("Branches: ")
-    #print(branch_tree)
-    #print("")
+    print("Branches: ")
+    print(branch_tree)
+    print("")
 
     #print("Max Comparison: {}".format(max_comparison))
     #print("")
 
-    #print("Threshold Names: {}".format(threshold_names))
-    #print("")
+    print("Threshold Names: {}".format(threshold_names))
+    print("")
+
+    print("Threshold Names DEPTH: {}".format(extract_names(branch_tree[0])))
+    print("")
+
+    print("EXTRACT_VERSIONS")
+    print(extract_versions(branch_tree[0]))
 
     #===============================#
     # STAGE 2 - Full Benchmark Pass #
@@ -627,13 +907,13 @@ for program in programs:
 
     # Sorted list by branch-depth.
     # Chosen based on the heuristic that deeper branches allow for more impactful tuning.
-    order = [(len(extract_names([branch_tree[i]])),i) for i, branch in enumerate(branch_tree)]
+    order = [(len(extract_names(branch_tree[i])),i) for i, branch in enumerate(branch_tree)]
     deepest_first_order = sorted(order, key=lambda x: x[0])[::-1]
 
     # Used for pretty-printing.
     num_versions = 0
     for d, i in order:
-        num_versions += len(extract_versions(d, branch_tree[i]))
+        num_versions += len(extract_versions(branch_tree[i]))
     current_version_num = 1
 
     #======================#
@@ -649,11 +929,11 @@ for program in programs:
         # Calculate the number of thresholds before and after this branch.
         depth_before = 0
         for j in range(i):
-            depth_before += len(extract_names([branch_tree[j]]))
+            depth_before += len(extract_names(branch_tree[j]))
 
         # Extract all code-versions from this branch.
-        branch_names = extract_names([branch_tree[i]])
-        branch_versions = extract_versions(len(branch_names), branch_tree[i])
+        branch_names = extract_names(branch_tree[i])
+        branch_versions = extract_versions(branch_tree[i])
 
         # Skip this branch if it contains conflicts already.
         if any(name in conflicts for name in branch_names):
@@ -758,24 +1038,26 @@ for program in programs:
                 # Only a single parameter comparison: Easy!
                 # We know it only has a single parameter, because if it didn't it would have been caught as a conflict.
                 name = branch_names[i]
+                if len(thresholds[dataset][name]) == 0:
+                    continue
                 val = thresholds[dataset][name][0]
 
                 skipFlag = False
                 for TName, T in zip(branch_names[:i], version[:i]):
                     if not T:
                         continue
-                    
+
                     if dependency_check(name, TName, dependency_info):
                         # This means no matter what choice I make, the version has already been chosen so to say.
                         threshold_ranges[dataset][name]['min'] = 1
                         threshold_ranges[dataset][name]['max'] = base_conf[name]
                         skipFlag = True
-                        break 
-                
+                        break
+
                 if skipFlag:
                     skipFlag = False
                     continue
-                    
+
                 # Use that value as the new min/max depending on whether this threshold was true or not.
                 if(thresh):
                     # This was set to True in the configuration
@@ -968,7 +1250,7 @@ for program in programs:
 
         for depth, i in deepest_first_order:
             branch = branch_tree[i]
-            branch_names = extract_names([branch])
+            branch_names = extract_names(branch)
 
             if not (any(name in conflicts for name in branch_names)):
                 continue
@@ -1001,7 +1283,7 @@ for program in programs:
             # Use those options to extract "versions"
             print("Options: {}".format(options))
             #branch_combinations = combinations(options)
-            branch_versions = extract_versions(len(extract_names([branch_tree[i]])), branch_tree[i])[::-1]
+            branch_versions = extract_versions(branch_tree[i])[::-1]
 
             # Initialize best-parameters.
             best_branch_time = 0
@@ -1108,6 +1390,11 @@ for program in programs:
                         else:
                             last = midpoint - 1
                 else:
+                    # Just try every version, since there are so few.
+
+                    #plot_list_x = []
+                    #plot_list_y = []
+
                     for k, current_option in enumerate(options[optionPosition]):
                         name, val = current_option
                         print("[{}s] Trying value {} for threshold {}".format( int(time.time() - start), val, name ))
@@ -1157,6 +1444,13 @@ for program in programs:
                             best_threshold_time = total_time
                             best_threshold_value = val
 
+                        #plot_list_x.append(val)
+                        #plot_list_y.append(runtime)
+
+                    # Printing for a plot thingy, not used.
+                    #print(plot_list_x)
+                    #print(plot_list_y)
+
                 print("Chose the following threshold for {} : {}".format(name, best_threshold_value))
                 final_conf[name] = best_threshold_value
 
@@ -1166,7 +1460,7 @@ for program in programs:
     best_tile_time = np.inf
 
     print("Skipping tile-calib, just debug")
-    
+
     tiles = [4, 8, 16, 32, 64]
 
     print("[{}s]Starting Tile-Size Calibration: {}".format(int(time.time() - start), tiles))
