@@ -280,33 +280,7 @@ def get_depth_first_nodes(root):
             stack.insert(0, child)
     return nodes
 
-"""
 
-Threshold Names DEPTH:
-['main.suff_outer_stream_0', 'main.suff_outer_par_1', 'main.suff_intra_par_2', 'main.suff_outer_redomap_8', 'main.suff_outer_par_9', 'main.suff_intra_par_10', 'main.suff_outer_par_11', 'main.suff_intra_par_12', 'main.suff_outer_par_13', 'main.suff_intra_par_14', 'main.suff_outer_par_20', 'main.suff_intra_par_21', 'main.suff_outer_par_6', 'main.suff_intra_par_7', 'main.suff_outer_par_3', 'main.suff_intra_par_4']
-[[True, True, False, False, False, False, False, False, False, False, False, False, False, False, False, False],
-[True, False, True, False, False, False, False, False, False, False, False, False, False, False, False, False],
-[True, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False],
-[False, True, False, False, False, False, False, False, False, False, False, False],
-[False, False, True, False, False, False, False, False, False, False],
-[False, False, False, True, False, False, False, False, False, False],
-[False, False, False, False, True, False, False, False, False, False],
-[False, False, False, False, False, True, False, False, False, False],
-[False, False, False, False, False, False, True, False, False, False],
-[False, False, False, False, False, False, False, True, False, False],
-[False, False, False, False, False, False, False, False, False, False],
-[False, False, True, False, False, False],
-[False, False, False, True, False, False],
-[False, False, False, False, False, False],
-[False, True, False, False, False],
-[False, False, True, False, False],
-[False, False, False, False, False],
-[False, True, False, False, False],
-[False, False, True, False, False],
-[False, False, False, False, False]]
-
-
-"""
 def extract_names(branch):
     names = []
     stack = [branch]
@@ -328,106 +302,56 @@ def extract_names(branch):
 def extract_versions(branch):
     next_horizontal = 0
     versions = []
-    stack = [(branch, [], [], -1)]
+    stack = [(branch, [], [])]
     while stack:
-        cur_node, versions_before, version_after, horizontal = stack[0]
+        cur_node, versions_before, version_after = stack[0]
         #print("{} had v_b {} and v_a {}".format(cur_node['name'], versions_before, version_after))
 
         stack = stack[1:]
 
-        if horizontal == -1:
-            if cur_node['name'] == 'end':
-                if len(versions_before) != 0:
-                    for version in versions_before:
-                        versions.append(version + version_after)
-                        #print("ID {} delivered {} . . . {}".format(cur_node['id'], version, version_after))
-                else:
-                    versions.append(version_after)
-                continue
+        if cur_node['name'] == 'end':
+            v = versions_before + version_after
+            if sum(v) == 0 and any(sum(x) == 0 for x in versions):
+                versions = filter(lambda x: sum(x) != 0, versions)
+                versions.append(v)
+                continue 
+        
+            versions.append(v)
+            #print("ID {} delivered {} . . . {}".format(cur_node['id'], versions_before, version_after))
+            continue
 
-            true_names  = sum([len(extract_names(true_branch )) for true_branch  in cur_node[True]])
-            false_names = sum([len(extract_names(false_branch)) for false_branch in cur_node[False]])
-
-            if len(cur_node[False]) == 1:
-                child = cur_node[False][0]
-
-                v_b = versions_before[:]
-
-                if len(v_b) != 0:
-                    for i, version in enumerate(v_b):
-                        v_b[i] = version + [False] + [False for x in range(true_names)]
-                else:
-                    v_b = [[False]]
-
-                stack.insert(0, (child, v_b, version_after, -1))
-            else:
-                for child in cur_node[False]:
-                    # Add the child, and mark it as a _horizontal_ one
-                    v_b = versions_before[:]
-                    if len(v_b) != 0:
-                        for i, version in enumerate(v_b):
-                            v_b[i] = version + [False] + [False for x in range(true_names)]
-                    else:
-                        v_b = [[False] + [False for x in range(true_names)]]
-
-                    stack.insert(0, (child, v_b, version_after, next_horizontal))
-                next_horizontal += 1
-
-            if len(cur_node[True]) == 1:
-                child = cur_node[True][0]
-
-                v_b = versions_before[:]
-
-                if len(v_b) != 0:
-                    for i, version in enumerate(v_b):
-                        v_b[i] = version + [True]
-                else:
-                    v_b = [[True]]
-
-                stack.insert(0, (child, v_b, [False for x in range(false_names)] + version_after, -1))
-            else:
-                for child in cur_node[True]:
-                    # Add the child, and mark it as a _horizontal_ one
-                    v_b = versions_before[:]
-                    if len(v_b) != 0:
-                        for i, version in enumerate(v_b):
-                            versions_before[i] = version + [True]
-                    else:
-                        v_b = [[True]]
-                    stack.insert(0, (child, v_b, [False for x in range(false_names)] + version_after, next_horizontal))
-                next_horizontal += 1
-        else:
-            # We are in a horizontal child!
-            #print("HORI")
-            #print(versions_before)
-            horizontal_versions = extract_versions(cur_node)
-
-            #print(horizontal_versions)
-
-            all_versions_before = []
-            for version1 in versions_before:
-                for version2 in horizontal_versions:
-                    all_versions_before.append(version1 + version2)
+        true_names  = sum([len(extract_names(true_branch )) for true_branch  in cur_node[True]])
+        false_names = sum([len(extract_names(false_branch)) for false_branch in cur_node[False]])
 
 
+        for i, child in enumerate(cur_node[False][::-1]):
+            v_b = versions_before[:] + [False] + [False for x in range(true_names)]                
+            
+            for child2 in cur_node[False][::-1][:i]:
+                v_b += [False for x in extract_names(child2)]
+                
+            v_a = version_after[:]
+            
+            for child2 in cur_node[False][::-1][i+1:]:
+                v_a = [False for x in extract_names(child2)] + v_a
+            
+            stack.insert(0, (child, v_b, v_a))
 
-            final_flag = True
-            for i, (node, v_b, v_a, h) in enumerate(stack):
-                if h == horizontal:
-                    final_flag = False
-                    # This one is part of the horizontal split that we are working on.
-                    # That means we have to give that one the information of all available versions in this one.
-                    stack[i] = (node, all_versions_before, v_a, h)
-
-            if final_flag:
-                # If this was the last of the horizontal children, we finish them.
-                # This branch is finished, so versions should be updated.
-                # All information is loaded into all_versions_before
-                for version in all_versions_before:
-                    #print("Horizontal {} delivered {} ... {}".format(horizontal, version, version_after))
-                    versions.append(version + version_after)
+        for i, child in enumerate(cur_node[True][::-1]):
+            v_b = versions_before[:] + [True] 
+            
+            for child2 in cur_node[True][::-1][:i]:
+                v_b += [False for x in extract_names(child2)]
+            
+            for child2 in cur_node[True][::-1][i+1:]:
+                v_a =  [False for x in extract_names(child2)] + v_a
+            
+            v_a = [False for x in range(false_names)] + version_after[:] 
+            
+            stack.insert(0, (child, v_b, v_a))
 
     return versions
+
 
 
 # Function to extract all "versions" for a branch.
@@ -510,8 +434,14 @@ def compute_execution_path(threshold_conf):
 
     return result_string
 
-
-
+"""
+[{False: [{'name': 'end', 'id': 1}], 
+  True: [{'name': 'end', 'id': 0}], 
+ 'name': 'main.suff_intra_par_13'}, 
+ {False: [{'name': 'end', 'id': 3}], 
+  True: [{'name': 'end', 'id': 2}], 
+  'name': 'main.suff_intra_par_2'}]
+"""
 
 # Letter is used to differentiate the kind of version.
 # 'V' = Standard branch, default.
@@ -744,20 +674,14 @@ for program in programs:
     print("Threshold Names DEPTH: {}".format(extract_names(branch_tree[0])))
     print("")
 
-    print("EXTRACT_VERSIONS")
-    print(extract_versions(branch_tree[0]))
+    #print("EXTRACT_VERSIONS")
+    #print(extract_versions(branch_tree[0]))
 
-    #===============================#
-    # STAGE 2 - Full Benchmark Pass #
-    #===============================#
+  
 
-    # OPTIMIZE DATASET-ORIENTED!
-    # For each "code version", run the benchmark from the deepest-most version first.
-    # For each run, load out the benchmarking output such that each datasets' runtime can be extracted.
-    # Keep track of the "best" version for each dataset as the benchmarking continnes
-    # In each version, all thresholds are either "TRUE" or "FALSE" for all datasets, to try all versions for all datasets.
-    # (Also, keep track of the time, such that a dynamic timeout can be used. Since there is only 1 timeout, it is the longest running dataset so far)
-
+    #=============================================#
+    # PREPARE THE FIRST BENCHMARK, AND GET READY! #
+    #=============================================#
     execution_cache = {}
     best_times = {}
     best_versions = {}
@@ -818,16 +742,13 @@ for program in programs:
     for d, i in order:
         num_versions += len(extract_versions(branch_tree[i]))
     current_version_num = 1
-
-    #======================#
-    # STRATEGY EXPLANATION #
-    #======================#======================================================================#
-    # A baseline has been created, starting with all-false thresholds.                            #
-    # From here, each Branch has all their code-versions benchmarked.                             #
-    # The best version from this branch is then incorporated in the baseline for future branches. #
-    # While doing the benchmarking, best versions pr. dataset along with their times is recorded. #
-    #=============================================================================================#
-
+    
+    
+    
+    #====================================#
+    # EXHAUSTIVE TUNING OF EASY BRANCHES #
+    #====================================#
+    
     for depth, i in deepest_first_order:
         # Calculate the number of thresholds before and after this branch.
         depth_before = 0
@@ -1083,67 +1004,34 @@ for program in programs:
 
         for dataset, runtime in best_times.items():
             print("Dataset {} has seen best {} so far.".format(dataset, runtime))
+    
+    
+    #======================#
+    # ACTIVE LEARNING      #
+    # STRATEGY EXPLANATION #
+    #======================#====================================================================#
+    # The goal of Active Learning is to make informed decisions about which datapoints to query #
+    # Currently, this is relaxed to trying a few uninformed uniform guesses first.              #
+    # Afterwards, a "predictive model" of how the objective function looks is estimated roughly #
+    # A new point is queried, and the model is validated on how accurately it predicted.        #
+    # Repeat a few times until pretty certain of result, and pick best point so far.            #
+    #                                                                                           # 
+    # This is done only for the "difficult" problem of multiple-option thresholds.              #
+    #===========================================================================================#
+    
+    # Only perform this step if there are variant-size conflicts remaining to fix.
+    """
+    OrderedDict([(u'data/LUD-data/2048.in', defaultdict(<type 'list'>, 
+{u'main.suff_intra_par_16': [16], 
+u'main.suff_outer_par_13': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127], 
+u'main.suff_intra_par_14': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16], 
+u'main.suff_intra_par_20': [16], 
+u'main.suff_outer_par_15': [1, 4, 9, 16, 25, 36, 49, 64, 81, 100, 121, 144, 169, 196, 225, 256, 289, 324, 361, 400, 441, 484, 529, 576, 625, 676, 729, 784, 841, 900, 961, 1024, 1089, 1156, 1225, 1296, 1369, 1444, 1521, 1600, 1681, 1764, 1849, 1936, 2025, 2116, 2209, 2304, 2401, 2500, 2601, 2704, 2809, 2916, 3025, 3136, 3249, 3364, 3481, 3600, 3721, 3844, 3969, 4096, 4225, 4356, 4489, 4624, 4761, 4900, 5041, 5184, 5329, 5476, 5625, 5776, 5929, 6084, 6241, 6400, 6561, 6724, 6889, 7056, 7225, 7396, 7569, 7744, 7921, 8100, 8281, 8464, 8649, 8836, 9025, 9216, 9409, 9604, 9801, 10000, 10201, 10404, 10609, 10816, 11025, 11236, 11449, 11664, 11881, 12100, 12321, 12544, 12769, 12996, 13225, 13456, 13689, 13924, 14161, 14400, 14641, 14884, 15129, 15376, 15625, 15876, 16129], 
+u'main.suff_intra_par_18': [16], 
+u'main.suff_outer_par_17': [16, 64, 144, 256, 400, 576, 784, 1024, 1296, 1600, 1936, 2304, 2704, 3136, 3600, 4096, 4624, 5184, 5776, 6400, 7056, 7744, 8464, 9216, 10000, 10816, 11664, 12544, 13456, 14400, 15376, 16384, 17424, 18496, 19600, 20736, 21904, 23104, 24336, 25600, 26896, 28224, 29584, 30976, 32400, 33856, 35344, 36864, 38416, 40000, 41616, 43264, 44944, 46656, 48400, 50176, 51984, 53824, 55696, 57600, 59536, 61504, 63504, 65536, 67600, 69696, 71824, 73984, 76176, 78400, 80656, 82944, 85264, 87616, 90000, 92416, 94864, 97344, 99856, 102400, 104976, 107584, 110224, 112896, 115600, 118336, 121104, 123904, 126736, 129600, 132496, 135424, 138384, 141376, 144400, 147456, 150544, 153664, 156816, 160000, 163216, 166464, 169744, 173056, 176400, 179776, 183184, 186624, 190096, 193600, 197136, 200704, 204304, 207936, 211600, 215296, 219024, 222784, 226576, 230400, 234256, 238144, 242064, 246016, 250000, 254016, 258064], 
+u'main.suff_outer_par_19': [256, 1024, 2304, 4096, 6400, 9216, 12544, 16384, 20736, 25600, 30976, 36864, 43264, 50176, 57600, 65536, 73984, 82944, 92416, 102400, 112896, 123904, 135424, 147456, 160000, 173056, 186624, 200704, 215296, 230400, 246016, 262144, 278784, 295936, 313600, 331776, 350464, 369664, 389376, 409600, 430336, 451584, 473344, 495616, 518400, 541696, 565504, 589824, 614656, 640000, 665856, 692224, 719104, 746496, 774400, 802816, 831744, 861184, 891136, 921600, 952576, 984064, 1016064, 1048576, 1081600, 1115136, 1149184, 1183744, 1218816, 1254400, 1290496, 1327104, 1364224, 1401856, 1440000, 1478656, 1517824, 1557504, 1597696, 1638400, 1679616, 1721344, 1763584, 1806336, 1849600, 1893376, 1937664, 1982464, 2027776, 2073600, 2119936, 2166784, 2214144, 2262016, 2310400, 2359296, 2408704, 2458624, 2509056, 2560000, 2611456, 2663424, 2715904, 2768896, 2822400, 2876416, 2930944, 2985984, 3041536, 3097600, 3154176, 3211264, 3268864, 3326976, 3385600, 3444736, 3504384, 3564544, 3625216, 3686400, 3748096, 3810304, 3873024, 3936256, 4000000, 4064256, 4129024]}))])
 
-
-    # Report the "final" base-version, which is NOT the final
-    print("REPRODUCE FINAL BASE-VERSION:")
-    print(futhark_bench_cmd(base_conf, None, None, None))
-
-    print("Finished the benchmarks!")
-    print("Best-Times: ")
-    print(best_times)
-    print("")
-    print("Best Versions: ")
-    print(best_versions)
-    print("Took {}s".format(time.time() - start))
-
-    #===========================================#
-    # STAGE 3: Variant-Size Conflict Resolution #
-    #===========================================#===========================================================#
-    # In this stage, the information from Stage 2 is processed.                                             #
-    # The goal is to choose values such that _all_ datasets get the version they prefer.                    #
-    # This is not always possible, but should be for some thresholds.                                       #
-    #                                                                                                       #
-    # First, "ranges" of possible max and min values for each threshold is computed.                        #
-    # Then, these are merged for every dataset, to find the "range" that fits best.                         #
-    # If this range is valid (i.e. min < max), then the max value is chosen (any value inbetween will work) #
-    # If it is invalid, it is a conflict.                                                                   #
-    #                                                                                                       #
-    # Finally, a second benchmark pass seeks to resolve each conflict, by choosing the best option.         #
-    # This is done in a similar way to in Stage 2, i.e. going through each branch independently.            #
-    # In the end, the final thresholds for each is reported.                                                #
-    #=======================================================================================================#
-
-
-
-
-    if len(conflicts) != 0:
-        print("Conflicts encountered in:")
-        for name, options in conflicts.items():
-            pplist = [val for (n, val) in options]
-            print("{} with these options: {}".format(name, pplist))
-
-    # Conflict Resolution Strategy:
-    # Loop over each branch, like in Stage 2
-    # Check which conflicts lie in this branch.
-    # Create all different tie-breaking versions in that branch. (Meaning we only redo important benchmarks)
-    # Test each, measured by total runtime, and use the best one as final value.
-
-    # Creating versions:
-    # All "final" valid threshold values are kept as they are (FIXED)
-    # Create "combinations" of the list of conflicts, to have all possible resolution-versions.
-    def combinations(lists):
-        versions = []
-        a = lists[0]
-        if len(lists) == 1:
-            return [[a[0]], [a[1]]]
-        else:
-            for option in a:
-                next = combinations(lists[1:])
-                for comb in next:
-                    versions.append([option] + comb)
-            return versions
-
+    """
     final_conf = dict(base_conf)
     if len(conflicts) != 0:
         print("Conflicts encountered in:")
@@ -1163,7 +1051,7 @@ for program in programs:
                 continue
 
             # Extract possible "options" for each threshold involved in this branch.
-            options = []
+            options = {}
             numOptions = 0
 
             # Add all conflict-values to the option list
@@ -1172,35 +1060,31 @@ for program in programs:
                     numOptions += len(val)
                     sortedVals = sorted(val, key=lambda x: x[1])
                     sortedVals.append((name, sortedVals[-1][1] + 1))
-                    options.append(sortedVals[::-1])
+                    options[name] = [x for (n, x) in sortedVals][::-1]
 
             # Add the remaining "simple" thresholds (if any)
             for name in branch_names:
                 # Skip all the "difficult" ones already covered
-                for optionList in options:
-                    if(optionList[0][0] == name):
-                        continue
+                if name in options:
+                    continue
 
-                options.append([(name, 1), (name, final_conf[name])])
+                options[name] = ([(name, 1), (name, final_conf[name])]) #Adds the "Always True" and "ALways False" paths
 
-            if len(options) == 0:
-                print("How did this happen!?!?")
-                continue
 
             # Use those options to extract "versions"
             print("Options: {}".format(options))
-            #branch_combinations = combinations(options)
+            
             branch_versions = extract_versions(branch_tree[i])[::-1]
 
             # Initialize best-parameters.
             best_branch_time = 0
 
-            print("[{}s] Breaking conflicts in Branch {}, found {} conflicts over {} thresholds.".format(int(time.time() - start), i, numOptions,len(options)))
+            print("[{}s] Breaking conflicts in Branch {}, found {} conflicts over {} thresholds.".format(int(time.time() - start), i, numOptions, len(options)))
 
             # Run each "version" to find the best one.
             for j, version in enumerate(branch_versions):
-                # First, find the True threshold, indicating the current tuning parameter
-                # THIS ASSUMES NO HORIZONTAL OPTIMIZATIONS IN A VARIANT-SIZE LOOP!
+                print(version)
+                # First, find the deepest True threshold, indicating the current tuning parameter
                 position = -1
                 for i, bool in enumerate(version):
                     if bool:
@@ -1214,30 +1098,35 @@ for program in programs:
                 print("[{}s] Finding best value for threshold {}".format(int(time.time() - start), branch_names[position]))
 
                 # Find the index of this threshold in Options
-                optionPosition = -1
-                for k in range(len(options)):
-                    if options[k][0][0] == branch_names[position]:
-                        optionPosition = k
-                        break
+                name = branch_names[position]
 
                 conf = dict(final_conf) #Copy the "fixed" values
 
                 best_threshold_value = 0
                 best_threshold_time  = np.inf
 
-                loop_options = list(options[optionPosition])
+                loop_options = list(options[name])
+                print(loop_options)
+                print(name)
                 first = 0
                 last = len(loop_options) - 1
                 first_iteration = True
 
-                if len(loop_options) > 4:
+                if len(loop_options) > 20:
+                    # ACTIVE LEARNING USEFUL!!!
+                    # We try to do active learning....
+                    
+                    
+                    
+                elif len(loop_options) > 5:
+                    # Binary-Search Choice
                     while len(loop_options[first:last]) != 0:
                         if first_iteration:
                             midpoint = 0
                         else:
                             midpoint = (first + last) // 2
 
-                        name, val = loop_options[midpoint]
+                        val = loop_options[midpoint]
                         print("[{}s] Trying value {} for threshold {}".format( int(time.time() - start), val, name ))
 
                         # Update the specific conflict-threshold's value to this possible option.
@@ -1297,12 +1186,13 @@ for program in programs:
                         else:
                             last = midpoint - 1
                 else:
+                    # Exhaustive-Search Choice
                     # Just try every version, since there are so few.
 
                     #plot_list_x = []
                     #plot_list_y = []
 
-                    for k, current_option in enumerate(options[optionPosition]):
+                    for k, current_option in enumerate(options[name]):
                         name, val = current_option
                         print("[{}s] Trying value {} for threshold {}".format( int(time.time() - start), val, name ))
 
@@ -1360,65 +1250,15 @@ for program in programs:
 
                 print("Chose the following threshold for {} : {}".format(name, best_threshold_value))
                 final_conf[name] = best_threshold_value
+    
 
 
-    best_tile = 16
-
-    best_tile_time = np.inf
-
-    print("Skipping tile-calib, just debug")
-
-    tiles = [4, 8, 16, 32, 64]
-
-    print("[{}s]Starting Tile-Size Calibration: {}".format(int(time.time() - start), tiles))
-    for tile in tiles:
-        print("[{}s] Trying Tile: {}".format(int(time.time() - start), tile))
-        with tempfile.NamedTemporaryFile() as json_tmp:
-            bench_cmd = futhark_bench_cmd(final_conf, json_tmp, None, tile)
-            num_executed += 1
-            call_program(bench_cmd)
-
-            json_data = json.load(json_tmp)
-            results = json_data[program]['datasets']
-            total_time = 0
-
-            for dataset in results:
-                try:
-                    runtime = int(np.mean(results[dataset]['runtimes']))
-                    total_time +=  runtime
-
-                    #print("[{}s] Dataset {} ran in {} with tile-size {}".format(int(time.time() - start), dataset, runtime, tile))
-
-                    if best_times[dataset] > runtime:
-                        best_times[dataset] = runtime
-
-
-                except:
-                    # It timed out on this dataset
-                    # This means I add the total "best" to this one, as it can't be better anyway.
-                    total_time += np.inf
-
-            if total_time < best_tile_time:
-                print("Chose new best tile-size at {} with {} compared to old {}".format(tile, total_time, best_tile_time))
-                best_tile = tile
-                best_tile_time = total_time
-
-
-
-    print("Best Tile: {}".format(best_tile))
-
-
-    print("Performed {} benchmarks".format(num_executed))
-
-    # Report the results.
-    print("FINAL BENCH COMMAND:")
-    if best_tile == None:
-        print(futhark_bench_cmd(final_conf, None, None, None))
-    else:
-        print(futhark_bench_cmd(final_conf, None, None, best_tile))
-
+    # Report the results
     script_results.append( (time.time() - start, futhark_bench_cmd(final_conf, None, None, best_tile), num_executed) )
 
+
+
+# PRINT ALL RESULTS!
 print("")
 print_str = "# FINISHED RUNNING {} BENCHMARKS #".format(len(programs))
 print("#" + '=' * (len(print_str) - 2) + "#")
@@ -1438,269 +1278,28 @@ for i, program in enumerate(programs):
 # NOTES SECTION #
 #===============#
 
-Final command for target program srad, took 91s (Perfect)
-futhark bench --skip-compilation srad.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_outer_par_0=1026 --pass-option --size=main.suff_intra_par_1=1024 --pass-option --size=main.suff_intra_par_5=1026 --pass-option --size=main.suff_outer_par_4=1026
-
-Final command for target program LocVolCalib, took 93s (Perfect)
-futhark bench --skip-compilation LocVolCalib.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_intra_par_7=385 --pass-option --size=main.suff_intra_par_5=385 --pass-option --size=main.suff_intra_par_17=385 --pass-option --size=main.suff_intra_par_9=256 --pass-option --size=main.suff_outer_par_6=385 --pass-option --size=main.suff_outer_par_4=385 --pass-option --size=main.suff_outer_par_8=32768 --pass-option --size=main.suff_outer_par_16=4096
-
-Final command for target program bfast-ours, took 1139s (Near-Perfect?)
-futhark bench --skip-compilation bfast-ours.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_outer_par_38=111557 --pass-option --size=main.suff_outer_par_29=167335 --pass-option --size=main.suff_outer_par_23=131072 --pass-option --size=main.suff_outer_par_33=111557 --pass-option --size=main.suff_outer_par_21=32768 --pass-option --size=main.suff_outer_par_35=16384 --pass-option --size=main.suff_outer_par_27=8388608 --pass-option --size=main.suff_outer_par_25=167335 --pass-option --size=main.suff_outer_par_10=1048576 --pass-option --size=main.suff_outer_par_17=111557 --pass-option --size=main.suff_outer_par_19=131072 --pass-option --size=main.suff_intra_par_7=13 --pass-option --size=main.suff_intra_par_11=769 --pass-option --size=main.suff_intra_par_13=128 --pass-option --size=main.suff_intra_par_9=13 --pass-option --size=main.suff_intra_par_36=76 --pass-option --size=main.suff_intra_par_24=13 --pass-option --size=main.suff_intra_par_34=113 --pass-option --size=main.suff_intra_par_26=256 --pass-option --size=main.suff_intra_par_20=769 --pass-option --size=main.suff_intra_par_30=235 --pass-option --size=main.suff_intra_par_22=8 --pass-option --size=main.suff_intra_par_18=13 --pass-option --size=main.suff_outer_par_8=1338673 --pass-option --size=main.suff_intra_par_39=122 --pass-option --size=main.suff_intra_par_28=13 --pass-option --size=main.suff_outer_par_6=167335
-
-Final command for target program variant, took 203s (Perfect)
-futhark bench --skip-compilation variant.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_outer_par_3=1024 --pass-option --size=main.suff_intra_par_4=1048577 --pass-option --size=main.suff_outer_par_0=1025 --pass-option --size=main.suff_intra_par_1=1025
-
-Final command for target program lud-clean, took 492s (Perfect)
-futhark bench --skip-compilation lud-clean.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_intra_par_16=24 --pass-option --size=main.suff_outer_par_13=128 --pass-option --size=main.suff_outer_par_17=258065 --pass-option --size=main.suff_intra_par_20=24 --pass-option --size=main.suff_outer_par_15=16130 --pass-option --size=main.suff_intra_par_18=24 --pass-option --size=main.suff_intra_par_14=9 --pass-option --size=main.suff_outer_par_19=9216
-
-
-#================#
-# FABIAN MEETING #
-#================#
-Look into:
- CMA-ES (BlackBox optimization)
- Meta-Optimization
- Active Learning (Learning with a Budget)
 
 #===========#
 # TILE SIZE #
 #===========#
 
-Ask COSMIN if it is possible to have the compiler pinpoint which "branch" uses Tile Sizes?
-
-
-#======================#
-# VARIANT-SIZE TESTING #
-#======================#
-Final command for target program variant, took 185s
-futhark bench --skip-compilation --exclude-case=notune variant.fut --pass-option --default-tile-size=64 --pass-option --size=main.suff_outer_par_3=1024 --pass-option --size=main.suff_intra_par_4=4096 --pass-option --size=main.suff_outer_par_0=1025 --pass-option --size=main.suff_intra_par_1=1025
-
-
-#=====#
-# LUD #
-#=====#
-Final command for target program lud-clean, took 628s
-futhark bench --skip-compilation --exclude-case=notune lud-clean.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_intra_par_16=24 --pass-option --size=main.suff_outer_par_13=128 --pass-option --size=main.suff_outer_par_17=258065 --pass-option --size=main.suff_intra_par_20=24 --pass-option --size=main.suff_outer_par_15=16130 --pass-option --size=main.suff_intra_par_18=24 --pass-option --size=main.suff_intra_par_14=9 --pass-option --size=main.suff_outer_par_19=9216
-
-[{False:
-    [{False:
-        [{False:
-            [{False:
-                [{False:
-                    [{False:
-                        [{False:
-                            [{False: [{'name': 'end', 'id': 15}],
-                              True: [{'name': 'end', 'id': 14}],
-                              'name': 'main.suff_intra_par_20'}],
-                         True: [{'name': 'end', 'id': 12}],
-                         'name': 'main.suff_outer_par_19'}],
-                     True: [{'name': 'end', 'id': 10}],
-                     'name': 'main.suff_intra_par_18'}],
-                 True: [{'name': 'end', 'id': 8}],
-                 'name': 'main.suff_outer_par_17'}],
-             True: [{'name': 'end', 'id': 6}],
-             'name': 'main.suff_intra_par_16'}],
-          True: [{'name': 'end', 'id': 4}],
-          'name': 'main.suff_outer_par_15'}],
-      True: [{'name': 'end', 'id': 2}],
-      'name': 'main.suff_intra_par_14'}],
-  True: [{'name': 'end', 'id': 0}],
-  'name': 'main.suff_outer_par_13'}]
-
-LUD-CLEAN --print-sizes result:
-main.suff_outer_par_13 (threshold ())
-main.suff_intra_par_14 (threshold (!main.suff_outer_par_13))
-main.suff_outer_par_15 (threshold (!main.suff_outer_par_13 !main.suff_intra_par_14))
-main.suff_intra_par_16 (threshold (!main.suff_outer_par_15 !main.suff_outer_par_13 !main.suff_intra_par_14))
-main.suff_outer_par_17 (threshold (!main.suff_outer_par_15 !main.suff_intra_par_16 !main.suff_outer_par_13 !main.suff_intra_par_14))
-main.suff_intra_par_18 (threshold (!main.suff_outer_par_17 !main.suff_outer_par_15 !main.suff_intra_par_16 !main.suff_outer_par_13 !main.suff_intra_par_14))
-main.suff_outer_par_19 (threshold (!main.suff_outer_par_17 !main.suff_intra_par_18 !main.suff_outer_par_15 !main.suff_intra_par_16 !main.suff_outer_par_13 !main.suff_intra_par_14))
-main.suff_intra_par_20 (threshold (!main.suff_outer_par_19 !main.suff_outer_par_17 !main.suff_intra_par_18 !main.suff_outer_par_15 !main.suff_intra_par_16 !main.suff_outer_par_13 !main.suff_intra_par_14))
-
 #======#
 # SRAD #
 #======#
-Final command for target program srad, took 164s
-futhark bench --skip-compilation --exclude-case=notune srad.fut --pass-option --default-tile-size=1024 --pass-option --size=main.suff_outer_par_0=1026 --pass-option --size=main.suff_intra_par_1=1026 --pass-option --size=main.suff_intra_par_5=1025 --pass-option --size=main.suff_outer_par_4=1026
-
 
 #=============#
 # LocVolCalib #
 #=============#
-Final command for target program LocVolCalib, took 134s
-futhark bench --skip-compilation --exclude-case=notune LocVolCalib.fut --pass-option --default-tile-size=8 --pass-option --size=main.suff_intra_par_7=385 --pass-option --size=main.suff_intra_par_5=385 --pass-option --size=main.suff_intra_par_17=385 --pass-option --size=main.suff_intra_par_9=256 --pass-option --size=main.suff_outer_par_6=385 --pass-option --size=main.suff_outer_par_4=385 --pass-option --size=main.suff_outer_par_8=32768 --pass-option --size=main.suff_outer_par_16=4096
-
-TRAIN-SMALL:
-16   -- 128  -- OUTER -- no restrictions
-32   -- 32   -- NUM_X -- 2^x, where x \in {5, ..., 9}
-256  -- 32   -- NUM_Y -- 2^x, where x \in {5, ..., 9}
-4    -- NUM_T -- no restrictions
-0.03 --s0
-5.0 -- t
-0.2 -- alpha
-0.6 -- nu
-0.5 -- beta
-
-
-TRAIN-MEDIUM:
-128     -- OUTER -- no restrictions
-256     -- NUM_X -- 2^x, where x \in {5, ..., 9}
-32      -- NUM_Y -- 2^x, where x \in {5, ..., 9}
-4       -- NUM_T -- no restrictions
-0.03 --s0
-5.0 -- t
-0.2 -- alpha
-0.6 -- nu
-0.5 -- beta
-
-
-TRAIN-LARGE:
-256     -- OUTER -- no restrictions
-256     -- NUM_X -- 2^x, where x \in {5, ..., 9}
-256     -- NUM_Y -- 2^x, where x \in {5, ..., 9}
-4       -- NUM_T -- no restrictions
-0.03 --s0
-5.0 -- t
-0.2 -- alpha
-0.6 -- nu
-0.5 -- beta
-
-Problem: With the current train-set I can accurately guess test-set as well...
-
 
 #=======#
 # BFAST #
 #=======#
 
-THIS IS COSMINS OWN VERSION!?!?!
-FUTHARK_INCREMENTAL_FLATTENING=1 futhark bench --backend opencl --pass-option --default-tile-size=16 --pass-option --size=main.suff_outer_par_6=50000000 --pass-option --size=main.suff_intra_par_7=2048 --pass-option --size=main.suff_outer_par_8=50000000 --pass-option --size=main.suff_intra_par_9=2048 --pass-option --size=main.suff_outer_par_10=1  --pass-option --size=main.suff_intra_par_11=2048 --pass-option --size=main.suff_intra_par_13=1 --pass-option --size=main.suff_outer_par_17=50000000  --pass-option --size=main.suff_intra_par_18=2048  --pass-option --size=main.suff_outer_par_19=1 --pass-option --size=main.suff_intra_par_20=2048  --pass-option --size=main.suff_outer_par_21=50000000 --pass-option --size=main.suff_intra_par_22=2048  --pass-option --size=main.suff_outer_par_23=50000000 --pass-option --size=main.suff_intra_par_24=2048  --pass-option --size=main.suff_outer_par_25=50000000 --pass-option --size=main.suff_intra_par_26=2048  --pass-option --size=main.suff_outer_par_27=1 --pass-option --size=main.suff_intra_par_28=2048  --pass-option --size=main.suff_outer_par_29=50000000 --pass-option --size=main.suff_intra_par_30=1  --pass-option --size=main.suff_outer_par_33=50000000 --pass-option --size=main.suff_intra_par_34=1  --pass-option --size=main.suff_outer_par_35=50000000 --pass-option --size=main.suff_intra_par_36=2048 --pass-option --size=main.suff_outer_par_38=50000000 --pass-option --size=main.suff_intra_par_39=1 bfast.fut
+#=====#
+# LUD #
+#=====#
 
-Final command for target program bfast-ours, took 1406s
-futhark bench --skip-compilation --exclude-case=notune bfast-ours.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_outer_par_38=16384 --pass-option --size=main.suff_outer_par_29=167335 --pass-option --size=main.suff_outer_par_23=262144 --pass-option --size=main.suff_outer_par_33=16384 --pass-option --size=main.suff_outer_par_21=16384 --pass-option --size=main.suff_outer_par_35=16384 --pass-option --size=main.suff_outer_par_27=8388608 --pass-option --size=main.suff_outer_par_25=16384 --pass-option --size=main.suff_outer_par_10=1048576 --pass-option --size=main.suff_outer_par_17=111557 --pass-option --size=main.suff_outer_par_19=131072 --pass-option --size=main.suff_intra_par_7=13 --pass-option --size=main.suff_intra_par_11=769 --pass-option --size=main.suff_intra_par_13=128 --pass-option --size=main.suff_intra_par_9=13 --pass-option --size=main.suff_intra_par_36=23 --pass-option --size=main.suff_intra_par_24=13 --pass-option --size=main.suff_intra_par_34=128 --pass-option --size=main.suff_intra_par_26=256 --pass-option --size=main.suff_intra_par_20=769 --pass-option --size=main.suff_intra_par_30=235 --pass-option --size=main.suff_intra_par_22=8 --pass-option --size=main.suff_intra_par_18=13 --pass-option --size=main.suff_outer_par_8=1338673 --pass-option --size=main.suff_intra_par_39=256 --pass-option --size=main.suff_intra_par_28=13 --pass-option --size=main.suff_outer_par_6=167335
-
-
-
-FIX ALL THE THINGS!?!?!?!?  (Probably something with merging?)
-Look at the datasets for LocVolCalib, vary NUM_[] and OUTER to find MAXIMUM / Minimum versions, and use that as TRAIN to predict TEST better!
-Make a github, instead of using goddamn Dropbox for everything. . .
-Make an example of a FUTHARK code program in which a loop changes the degree of parallelism. (???) See photos (Think about varying Tile-Size / Variant Size)
-
-
-
-BFAST BRANCHES:
-
-So, I have 9 branches, each independent from the rest.
-
-Maintain a "Baseline-version"
-Loop over number of branches?
-
-
-[
-{False: [{'name': 'end', 'id': 1}],
- True: [{'name': 'end', 'id': 0}],
- 'name': 'main.suff_intra_par_13'},
-
-{False:
-    [{False:
-        [{False:
-            [{False: [{'name': 'end', 'id': 43}],
-              True: [{'name': 'end', 'id': 42}],
-              'name': 'main.suff_intra_par_20'}],
-          True: [{'name': 'end', 'id': 34}],
-          'name': 'main.suff_outer_par_19'}],
-      True: [{'name': 'end', 'id': 18}],
-      'name': 'main.suff_intra_par_18'}],
- True: [{'name': 'end', 'id': 2}],
- 'name': 'main.suff_outer_par_17'},
-
-{False:
-    [{False:
-        [{False:
-            [{False: [{'name': 'end', 'id': 45}],
-              True: [{'name': 'end', 'id': 44}],
-              'name': 'main.suff_intra_par_24'}],
-          True: [{'name': 'end', 'id': 36}],
-          'name': 'main.suff_outer_par_23'}],
-      True: [{'name': 'end', 'id': 20}],
-      'name': 'main.suff_intra_par_22'}],
- True: [{'name': 'end', 'id': 4}],
- 'name': 'main.suff_outer_par_21'},
-
-{False:
-    [{False:
-        [{False:
-            [{False: [{'name': 'end', 'id': 47}],
-              True: [{'name': 'end', 'id': 46}],
-              'name': 'main.suff_intra_par_28'}],
-          True: [{'name': 'end', 'id': 38}],
-          'name': 'main.suff_outer_par_27'}],
-      True: [{'name': 'end', 'id': 22}],
-      'name': 'main.suff_intra_par_26'}],
- True: [{'name': 'end', 'id': 6}],
- 'name': 'main.suff_outer_par_25'},
-
-{False:
-    [{False: [{'name': 'end', 'id': 25}],
-      True: [{'name': 'end', 'id': 24}],
-      'name': 'main.suff_intra_par_30'}],
- True: [{'name': 'end', 'id': 8}],
- 'name': 'main.suff_outer_par_29'},
-
-{False:
-    [{False: [{'name': 'end', 'id': 27}],
-      True: [{'name': 'end', 'id': 26}],
-      'name': 'main.suff_intra_par_34'}],
- True: [{'name': 'end', 'id': 10}],
- 'name': 'main.suff_outer_par_33'},
-
-{False:
-    [{False: [{'name': 'end', 'id': 29}],
-      True: [{'name': 'end', 'id': 28}],
-      'name': 'main.suff_intra_par_36'}],
- True: [{'name': 'end', 'id': 12}],
- 'name': 'main.suff_outer_par_35'},
-
-{False:
-    [{False: [{'name': 'end', 'id': 31}],
-      True: [{'name': 'end', 'id': 30}],
-      'name': 'main.suff_intra_par_39'}],
- True: [{'name': 'end', 'id': 14}],
- 'name': 'main.suff_outer_par_38'},
-
-{False:
-    [{False:
-        [{False:
-            [{False:
-                [{False:
-                    [{False: [{'name': 'end', 'id': 53}],
-                      True: [{'name': 'end', 'id': 52}],
-                      'name': 'main.suff_intra_par_11'}],
-                  True: [{'name': 'end', 'id': 50}],
-                  'name': 'main.suff_outer_par_10'}],
-              True: [{'name': 'end', 'id': 48}],
-              'name': 'main.suff_intra_par_9'}],
-          True: [{'name': 'end', 'id': 40}],
-          'name': 'main.suff_outer_par_8'}],
-      True: [{'name': 'end', 'id': 32}],
-      'name': 'main.suff_intra_par_7'}],
- True: [{'name': 'end', 'id': 16}],
- 'name': 'main.suff_outer_par_6'}]
-
-
-Final command for target program srad, took 175s, with 11 executions
-futhark bench --skip-compilation srad.fut --pass-option --default-tile-size=64 --pass-option --size=main.suff_outer_par_0=1026 --pass-option --size=main.suff_intra_par_1=1025 --pass-option --size=main.suff_intra_par_5=1026 --pass-option --size=main.suff_outer_par_4=1026
-
-Final command for target program LocVolCalib, took 184s, with 17 executions
-futhark bench --skip-compilation LocVolCalib.fut --pass-option --default-tile-size=4 --pass-option --size=main.suff_intra_par_7=385 --pass-option --size=main.suff_intra_par_5=385 --pass-option --size=main.suff_intra_par_17=384 --pass-option --size=main.suff_intra_par_9=256 --pass-option --size=main.suff_outer_par_6=385 --pass-option --size=main.suff_outer_par_4=385 --pass-option --size=main.suff_outer_par_8=32768 --pass-option --size=main.suff_outer_par_16=4096
-
-Final command for target program bfast-ours, took 1223s, with 44 executions
-futhark bench --skip-compilation bfast-ours.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_outer_par_38=65537 --pass-option --size=main.suff_outer_par_29=167335 --pass-option --size=main.suff_outer_par_23=131072 --pass-option --size=main.suff_outer_par_33=16384 --pass-option --size=main.suff_outer_par_21=32768 --pass-option --size=main.suff_outer_par_35=67969 --pass-option --size=main.suff_outer_par_27=8388608 --pass-option --size=main.suff_outer_par_25=167335 --pass-option --size=main.suff_outer_par_10=1048576 --pass-option --size=main.suff_outer_par_17=111557 --pass-option --size=main.suff_outer_par_19=131072 --pass-option --size=main.suff_intra_par_7=13 --pass-option --size=main.suff_intra_par_11=768 --pass-option --size=main.suff_intra_par_13=128 --pass-option --size=main.suff_intra_par_9=13 --pass-option --size=main.suff_intra_par_36=21 --pass-option --size=main.suff_intra_par_24=12 --pass-option --size=main.suff_intra_par_34=113 --pass-option --size=main.suff_intra_par_26=512 --pass-option --size=main.suff_intra_par_20=768 --pass-option --size=main.suff_intra_par_30=235 --pass-option --size=main.suff_intra_par_22=8 --pass-option --size=main.suff_intra_par_18=12 --pass-option --size=main.suff_outer_par_8=1338673 --pass-option --size=main.suff_intra_par_39=128 --pass-option --size=main.suff_intra_par_28=12 --pass-option --size=main.suff_outer_par_6=167335
-
-Final command for target program variant, took 249s, with 22 executions
-futhark bench --skip-compilation variant.fut --pass-option --default-tile-size=32 --pass-option --size=main.suff_outer_par_3=1024 --pass-option --size=main.suff_intra_par_4=4096 --pass-option --size=main.suff_outer_par_0=1025 --pass-option --size=main.suff_intra_par_1=1025
-
-Final command for target program lud-clean, took 553s, with 44 executions
-futhark bench --skip-compilation lud-clean.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_intra_par_16=24 --pass-option --size=main.suff_outer_par_13=128 --pass-option --size=main.suff_outer_par_17=254016 --pass-option --size=main.suff_intra_par_20=24 --pass-option --size=main.suff_outer_par_15=16130 --pass-option --size=main.suff_intra_par_18=24 --pass-option --size=main.suff_intra_par_14=15 --pass-option --size=main.suff_outer_par_19=1024
-
-
+#======================#
+# VARIANT-SIZE TESTING #
+#======================#
  """
