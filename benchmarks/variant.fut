@@ -1,11 +1,11 @@
 -- ==
--- compiled input @ data/variant-data/1024.in
+-- tune compiled input @ data/variant-data/1024.in
 -- output @ data/variant-data/1024.out
--- compiled input @ data/variant-data/128.in
+-- tune compiled input @ data/variant-data/128.in
 -- output @ data/variant-data/128.out
--- compiled input @ data/variant-data/32.in
+-- tune compiled input @ data/variant-data/32.in
 -- output @ data/variant-data/32.out
--- compiled input @ data/variant-data/8.in
+-- tune compiled input @ data/variant-data/8.in
 -- output @ data/variant-data/8.out
 
 

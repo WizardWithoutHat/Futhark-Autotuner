@@ -2,7 +2,7 @@
 -- https://github.com/kkushagra/rodinia/blob/master/openmp/nw
 --
 -- ==
--- compiled input @ nw-data/train-D.in.gz
+-- tune compiled input @ nw-data/train-D.in.gz
 --
 -- notune compiled input @ nw-data/D1.in.gz
 -- output @ nw-data/D1.out.gz

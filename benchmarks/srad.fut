@@ -3,13 +3,13 @@
 -- parallel.
 --
 -- ==
--- notne compiled input @ data/srad-data/train-D1.in
+-- tune compiled input @ data/srad-data/train-D1.in
 -- output @ data/srad-data/train-D1.out
 --
--- notne compiled input @ data/srad-data/train-D2.in
+-- tune compiled input @ data/srad-data/train-D2.in
 -- output @ data/srad-data/train-D2.out
 --
--- notne compiled input @ data/srad-data/train-D3.in
+-- tune compiled input @ data/srad-data/train-D3.in
 --
 -- notune compiled input @ data/srad-data/D1.in
 -- output @ data/srad-data/D1.out

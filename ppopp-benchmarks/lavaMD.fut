@@ -2,8 +2,8 @@
 -- https://github.com/kkushagra/rodinia/blob/master/openmp/lavaMD/main.c
 --
 -- ==
--- compiled input @ lavaMD-data/D1.in
--- compiled input @ lavaMD-data/D2.in
+-- tune compiled input @ lavaMD-data/D1.in
+-- tune compiled input @ lavaMD-data/D2.in
 --
 -- notune compiled input @ lavaMD-data/train-D1.in
 -- notune compiled input @ lavaMD-data/train-D2.in

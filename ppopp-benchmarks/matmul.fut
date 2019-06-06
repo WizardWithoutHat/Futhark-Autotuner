@@ -11,17 +11,17 @@
 -- notune compiled input @ matmul-data/2pow25_work_2pow9_outer
 -- notune compiled input @ matmul-data/2pow25_work_2pow10_outer
 --
--- compiled input @ matmul-data/2pow20_work_2pow0_outer
--- compiled input @ matmul-data/2pow20_work_2pow1_outer
--- compiled input @ matmul-data/2pow20_work_2pow2_outer
--- compiled input @ matmul-data/2pow20_work_2pow3_outer
--- compiled input @ matmul-data/2pow20_work_2pow4_outer
--- compiled input @ matmul-data/2pow20_work_2pow5_outer
--- compiled input @ matmul-data/2pow20_work_2pow6_outer
--- compiled input @ matmul-data/2pow20_work_2pow7_outer
--- compiled input @ matmul-data/2pow20_work_2pow8_outer
--- compiled input @ matmul-data/2pow20_work_2pow9_outer
--- compiled input @ matmul-data/2pow20_work_2pow10_outer
+-- tune compiled input @ matmul-data/2pow20_work_2pow0_outer
+-- tune compiled input @ matmul-data/2pow20_work_2pow1_outer
+-- tune compiled input @ matmul-data/2pow20_work_2pow2_outer
+-- tune compiled input @ matmul-data/2pow20_work_2pow3_outer
+-- tune compiled input @ matmul-data/2pow20_work_2pow4_outer
+-- tune compiled input @ matmul-data/2pow20_work_2pow5_outer
+-- tune compiled input @ matmul-data/2pow20_work_2pow6_outer
+-- tune compiled input @ matmul-data/2pow20_work_2pow7_outer
+-- tune compiled input @ matmul-data/2pow20_work_2pow8_outer
+-- tune compiled input @ matmul-data/2pow20_work_2pow9_outer
+-- tune compiled input @ matmul-data/2pow20_work_2pow10_outer
 
 
 let dotprod [n] (xs: [n]f32) (ys: [n]f32): f32 =

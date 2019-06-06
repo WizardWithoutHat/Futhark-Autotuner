@@ -1,15 +1,15 @@
 -- Parallel blocked LU-decomposition.
 --
 -- ==
--- input @ data/LUD-data/16by16.in
+-- tune input @ data/LUD-data/16by16.in
 -- output @ data/LUD-data/16by16.out
--- compiled input @ data/LUD-data/64.in
+-- tune compiled input @ data/LUD-data/64.in
 -- output @ data/LUD-data/64.out
--- compiled input @ data/LUD-data/256.in
+-- tune compiled input @ data/LUD-data/256.in
 -- output @ data/LUD-data/256.out
--- compiled input @ data/LUD-data/512.in.gz
+-- tune compiled input @ data/LUD-data/512.in.gz
 -- output @ data/LUD-data/512.out.gz
--- compiled input @ data/LUD-data/2048.in.gz
+-- tune compiled input @ data/LUD-data/2048.in.gz
 -- output @ data/LUD-data/2048.out.gz
 
 -------------------------------------------

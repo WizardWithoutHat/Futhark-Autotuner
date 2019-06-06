@@ -3,9 +3,9 @@
 -- parallel.
 --
 -- ==
--- noune compiled input @ srad-data/train-D1.in
--- noune compiled input @ srad-data/train-D2.in
--- noune compiled input @ srad-data/train-D3.in
+-- tune compiled input @ srad-data/train-D1.in
+-- tune compiled input @ srad-data/train-D2.in
+-- tune compiled input @ srad-data/train-D3.in
 --
 -- notune compiled input @ srad-data/D1.in
 -- notune compiled input @ srad-data/D2.in

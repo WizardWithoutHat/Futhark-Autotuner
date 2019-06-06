@@ -1,8 +1,8 @@
 -- | Heston calibration with double-precision floats.
 --
 -- ==
--- notne compiled input @ heston/data/train-1162-quotes.in 
--- notne compiled input @ heston/data/train-9000-quotes.in
+-- tune  compiled input @ heston/data/train-1162-quotes.in 
+-- tune  compiled input @ heston/data/train-9000-quotes.in
 --
 -- notune compiled input @ heston/data/1062_quotes.in
 -- notune compiled input @ heston/data/10000_quotes.in

@@ -2,8 +2,8 @@
 -- https://github.com/kkushagra/rodinia/blob/master/openmp/pathfinder/
 --
 -- ==
--- compiled input @ pathfinder-data/train-D1.in
--- compiled input @ pathfinder-data/train-D2.in
+-- tune compiled input @ pathfinder-data/train-D1.in
+-- tune compiled input @ pathfinder-data/train-D2.in
 --
 -- notune compiled input @ pathfinder-data/D1.in
 -- output @ pathfinder-data/D1.out

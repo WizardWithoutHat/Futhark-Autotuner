@@ -1,14 +1,14 @@
 -- BFAST-irregular: version handling obscured observations (e.g., clouds)
 -- ==
--- compiled input @ data/bfast-data/D1.in.gz
--- compiled input @ data/bfast-data/D2.in.gz
--- compiled input @ data/bfast-data/D3.in.gz
--- compiled input @ data/bfast-data/D4.in.gz
--- compiled input @ data/bfast-data/D5.in.gz
--- compiled input @ data/bfast-data/D6.in.gz
--- compiled input @ data/bfast-data/peru.in.gz
+-- tune compiled input @ data/bfast-data/D1.in.gz
+-- tune compiled input @ data/bfast-data/D2.in.gz
+-- tune compiled input @ data/bfast-data/D3.in.gz
+-- tune compiled input @ data/bfast-data/D4.in.gz
+-- tune compiled input @ data/bfast-data/D5.in.gz
+-- tune compiled input @ data/bfast-data/D6.in.gz
+-- tune compiled input @ data/bfast-data/peru.in.gz
 -- output @ data/bfast-data/peru.out.gz
--- compiled input @ data/bfast-data/sahara.in.gz
+-- tune compiled input @ data/bfast-data/sahara.in.gz
 -- output @ data/bfast-data/sahara.out.gz
 
 let logplus (x: f32) : f32 =

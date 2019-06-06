@@ -1,8 +1,8 @@
 -- Rodinia's Back-Propagation benchmark translated to Futhark.
 --
 -- ==
--- compiled input @ backprop-data/train-D1.in
--- compiled input @ backprop-data/train-D2.in
+-- tune compiled input @ backprop-data/train-D1.in
+-- tune compiled input @ backprop-data/train-D2.in
 --
 -- notune compiled input @ backprop-data/D1.in
 -- output @ backprop-data/D1.out

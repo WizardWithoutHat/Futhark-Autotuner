@@ -1,12 +1,12 @@
 -- | Heston calibration with single-precision floats.
 --
 -- ==
--- notne compiled input @ heston/data/train-1162-quotes.in
--- notne compiled input @ heston/data/train-9000-quotes.in
+-- tune  compiled input @ heston/data/train-1162-quotes.in
+-- tune  compiled input @ heston/data/train-9000-quotes.in
 --
--- notne compiled input @ heston/data/1062_quotes.in
--- notne compiled input @ heston/data/10000_quotes.in
--- notne compiled input @ heston/data/100000_quotes.in
+-- notune compiled input @ heston/data/1062_quotes.in
+-- notune compiled input @ heston/data/10000_quotes.in
+-- notune compiled input @ heston/data/100000_quotes.in
 
 import "lib/github.com/diku-dk/cpprandom/random"
 import "heston/heston"

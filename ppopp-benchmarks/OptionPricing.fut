@@ -1,7 +1,7 @@
 -- Generic pricing
 -- ==
--- compiled input @ OptionPricing-data/train-D1.in
--- compiled input @ OptionPricing-data/train-D2.in
+-- tune compiled input @ OptionPricing-data/train-D1.in
+-- tune compiled input @ OptionPricing-data/train-D2.in
 --
 -- notune compiled input @ OptionPricing-data/D1.in
 -- output @ OptionPricing-data/D1.out
