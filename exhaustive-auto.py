@@ -325,6 +325,7 @@ def extract_names(branch):
             stack.insert(0, child)
     return names
 
+# Alternative version which finds combinations of horizontal optimzations
 def extract_versions(branch):
     next_horizontal = 0
     versions = []
@@ -429,6 +430,60 @@ def extract_versions(branch):
 
     return versions
 
+# Proper version, which does not do combinations.
+def extract_versions_depth(branch):
+    next_horizontal = 0
+    versions = []
+    stack = [(branch, [], [])]
+    while stack:
+        cur_node, versions_before, version_after = stack[0]
+        #print("{} had v_b {} and v_a {}".format(cur_node['name'], versions_before, version_after))
+
+        stack = stack[1:]
+
+        if cur_node['name'] == 'end':
+            v = versions_before + version_after
+            if sum(v) == 0 and any(sum(x) == 0 for x in versions):
+                versions = filter(lambda x: sum(x) != 0, versions)
+                versions.append(v)
+                continue
+
+            versions.append(v)
+            #print("ID {} delivered {} . . . {}".format(cur_node['id'], versions_before, version_after))
+            continue
+
+        true_names  = sum([len(extract_names(true_branch )) for true_branch  in cur_node[True]])
+        false_names = sum([len(extract_names(false_branch)) for false_branch in cur_node[False]])
+
+
+        for i, child in enumerate(cur_node[False][::-1]):
+            v_b = versions_before[:] + [False] + [False for x in range(true_names)]
+
+            for child2 in cur_node[False][::-1][:i]:
+                v_b += [False for x in extract_names(child2)]
+
+            v_a = version_after[:]
+
+            for child2 in cur_node[False][::-1][i+1:]:
+                v_a = [False for x in extract_names(child2)] + v_a
+
+            stack.insert(0, (child, v_b, v_a))
+
+        for i, child in enumerate(cur_node[True][::-1]):
+            v_b = versions_before[:] + [True]
+
+            for child2 in cur_node[True][::-1][:i]:
+                v_b += [False for x in extract_names(child2)]
+
+            for child2 in cur_node[True][::-1][i+1:]:
+                v_a =  [False for x in extract_names(child2)] + v_a
+
+            v_a = [False for x in range(false_names)] + version_after[:]
+
+            stack.insert(0, (child, v_b, v_a))
+
+    return versions
+
 
 # Function to extract all "versions" for a branch.
 # One version is a list of booleans, each corresponding to a threshold.
@@ -520,9 +575,9 @@ def compute_execution_path(threshold_conf):
 # 'LE' = Looping Branch End.
 def compute_execution_path_branch(branch, threshold_conf, letter, dataset):
     node_name = branch['name']
-    
+
     threshold_value = threshold_conf[node_name]
-    
+
     global thresholds
     if len(thresholds[dataset][node_name]) == 1:
         threshold_comparison = threshold_value <= thresholds[dataset][node_name][0]
@@ -1150,8 +1205,8 @@ for program in programs:
         for name, options in conflicts.items():
             pplist = [val for (n, val) in options]
             print("{} with these options: {}".format(name, pplist))
-            
-            
+
+
         #print("Encountered the following variant-size conflicts:")
         #print(conflicts)
 
@@ -1431,6 +1486,11 @@ for i, program in enumerate(programs):
     print("Final command for target program {}, took {}s, with {} executions".format(program[:-4], int(time_taken), num_executed))
     print(bench_cmd.replace(' --exclude-case=notune ', ' '))
 
+print("Saving all final benchmarks in JSON files for results.")
+for i, program in enumerate(programs):
+    print("Saving results of {}".format(program))
+    (time_taken, bench_cmd, num_executed) = script_results[i]
+    call_program(bench_cmd.replace(' --exclude-case=notune ', ' ') + ' --json=binary-{}.json'.format(program[:-4]))
 
 
 """
@@ -1701,6 +1761,31 @@ futhark bench --skip-compilation variant.fut --pass-option --default-tile-size=3
 
 Final command for target program lud-clean, took 553s, with 44 executions
 futhark bench --skip-compilation lud-clean.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_intra_par_16=24 --pass-option --size=main.suff_outer_par_13=128 --pass-option --size=main.suff_outer_par_17=254016 --pass-option --size=main.suff_intra_par_20=24 --pass-option --size=main.suff_outer_par_15=16130 --pass-option --size=main.suff_intra_par_18=24 --pass-option --size=main.suff_intra_par_14=15 --pass-option --size=main.suff_outer_par_19=1024
+
+
+
+
+Harpers:  Ikke helt tilfreds med ikke at bringe Thay til bordet, men derudover har de intet valg end at støtte the cause med al vores magt.
+Gauntlet: Jeres Heroism er without question, og ligeså vores loyalitet!
+Emerald Enclave: Få kunne overtale de metalliske drager, og jeres villighed til ikke at ofre jeres morale for at bringe Thay til bordet har forsikret mig om jeres karakter. I har min støtte.
+Laeral Silverhand: Jeres handlinger taler nok, i har min støtte.
+Neverember: Hvis ikke vi gav vores støtte, ville det hele være fortabt.
+King Melandrach: I hjalp med at bringe min sorg til en ende, i har min støtte.
+Connerad: Mere effektive dragejægere eksisterer ikke. At i ikke værdsætter mit folks kultur, skal ikke stoppe mit folk fra at vise hvor meget bedre vi er end elverne!
+Ulder: Intet har ville stoppe jer for at sikre vores sejr, og ligeså vil intet stoppe mig!
+Taern: Aye!
+Sir Isteval: Aye!
+
+
+
+PLAN OF ATTACK:
+Main force distraction for random tunnel-digging squad.
+Siege-formation for all the forces, with Druids focusing on Earthbind, Rangers given arrows of Dragon Slaying
+Metal Dragons assisting. Arcane Brotherhood skaffer et par rune-bombs til partyet.
+Harpers: Find information on where Severin is + map to get there.
+
+Hakak har underskrevet kontrakt, om at få Elsandoral tilbage i kampen.
+
 
 
  """

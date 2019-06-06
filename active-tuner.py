@@ -17,6 +17,9 @@ import itertools
 import time
 import logging
 import numpy as np
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
 
 from collections import OrderedDict, defaultdict
 
@@ -314,8 +317,8 @@ def extract_versions(branch):
             if sum(v) == 0 and any(sum(x) == 0 for x in versions):
                 versions = filter(lambda x: sum(x) != 0, versions)
                 versions.append(v)
-                continue 
-        
+                continue
+
             versions.append(v)
             #print("ID {} delivered {} . . . {}".format(cur_node['id'], versions_before, version_after))
             continue
@@ -325,29 +328,29 @@ def extract_versions(branch):
 
 
         for i, child in enumerate(cur_node[False][::-1]):
-            v_b = versions_before[:] + [False] + [False for x in range(true_names)]                
-            
+            v_b = versions_before[:] + [False] + [False for x in range(true_names)]
+
             for child2 in cur_node[False][::-1][:i]:
                 v_b += [False for x in extract_names(child2)]
-                
+
             v_a = version_after[:]
-            
+
             for child2 in cur_node[False][::-1][i+1:]:
                 v_a = [False for x in extract_names(child2)] + v_a
-            
+
             stack.insert(0, (child, v_b, v_a))
 
         for i, child in enumerate(cur_node[True][::-1]):
-            v_b = versions_before[:] + [True] 
-            
+            v_b = versions_before[:] + [True]
+
             for child2 in cur_node[True][::-1][:i]:
                 v_b += [False for x in extract_names(child2)]
-            
+
             for child2 in cur_node[True][::-1][i+1:]:
                 v_a =  [False for x in extract_names(child2)] + v_a
-            
-            v_a = [False for x in range(false_names)] + version_after[:] 
-            
+
+            v_a = [False for x in range(false_names)] + version_after[:]
+
             stack.insert(0, (child, v_b, v_a))
 
     return versions
@@ -434,15 +437,6 @@ def compute_execution_path(threshold_conf):
 
     return result_string
 
-"""
-[{False: [{'name': 'end', 'id': 1}], 
-  True: [{'name': 'end', 'id': 0}], 
- 'name': 'main.suff_intra_par_13'}, 
- {False: [{'name': 'end', 'id': 3}], 
-  True: [{'name': 'end', 'id': 2}], 
-  'name': 'main.suff_intra_par_2'}]
-"""
-
 # Letter is used to differentiate the kind of version.
 # 'V' = Standard branch, default.
 # 'B' = Branching branch, aka one with multiple optimizations at the same layer.
@@ -450,9 +444,9 @@ def compute_execution_path(threshold_conf):
 # 'LE' = Looping Branch End.
 def compute_execution_path_branch(branch, threshold_conf, letter, dataset):
     node_name = branch['name']
-    
+
     threshold_value = threshold_conf[node_name]
-    
+
     global thresholds
     if len(thresholds[dataset][node_name]) == 1:
         threshold_comparison = threshold_value <= thresholds[dataset][node_name][0]
@@ -677,7 +671,7 @@ for program in programs:
     #print("EXTRACT_VERSIONS")
     #print(extract_versions(branch_tree[0]))
 
-  
+
 
     #=============================================#
     # PREPARE THE FIRST BENCHMARK, AND GET READY! #
@@ -742,13 +736,13 @@ for program in programs:
     for d, i in order:
         num_versions += len(extract_versions(branch_tree[i]))
     current_version_num = 1
-    
-    
-    
+
+
+
     #====================================#
     # EXHAUSTIVE TUNING OF EASY BRANCHES #
     #====================================#
-    
+
     for depth, i in deepest_first_order:
         # Calculate the number of thresholds before and after this branch.
         depth_before = 0
@@ -1004,8 +998,8 @@ for program in programs:
 
         for dataset, runtime in best_times.items():
             print("Dataset {} has seen best {} so far.".format(dataset, runtime))
-    
-    
+
+
     #======================#
     # ACTIVE LEARNING      #
     # STRATEGY EXPLANATION #
@@ -1015,31 +1009,19 @@ for program in programs:
     # Afterwards, a "predictive model" of how the objective function looks is estimated roughly #
     # A new point is queried, and the model is validated on how accurately it predicted.        #
     # Repeat a few times until pretty certain of result, and pick best point so far.            #
-    #                                                                                           # 
+    #                                                                                           #
     # This is done only for the "difficult" problem of multiple-option thresholds.              #
     #===========================================================================================#
-    
-    # Only perform this step if there are variant-size conflicts remaining to fix.
-    """
-    OrderedDict([(u'data/LUD-data/2048.in', defaultdict(<type 'list'>, 
-{u'main.suff_intra_par_16': [16], 
-u'main.suff_outer_par_13': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127], 
-u'main.suff_intra_par_14': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16], 
-u'main.suff_intra_par_20': [16], 
-u'main.suff_outer_par_15': [1, 4, 9, 16, 25, 36, 49, 64, 81, 100, 121, 144, 169, 196, 225, 256, 289, 324, 361, 400, 441, 484, 529, 576, 625, 676, 729, 784, 841, 900, 961, 1024, 1089, 1156, 1225, 1296, 1369, 1444, 1521, 1600, 1681, 1764, 1849, 1936, 2025, 2116, 2209, 2304, 2401, 2500, 2601, 2704, 2809, 2916, 3025, 3136, 3249, 3364, 3481, 3600, 3721, 3844, 3969, 4096, 4225, 4356, 4489, 4624, 4761, 4900, 5041, 5184, 5329, 5476, 5625, 5776, 5929, 6084, 6241, 6400, 6561, 6724, 6889, 7056, 7225, 7396, 7569, 7744, 7921, 8100, 8281, 8464, 8649, 8836, 9025, 9216, 9409, 9604, 9801, 10000, 10201, 10404, 10609, 10816, 11025, 11236, 11449, 11664, 11881, 12100, 12321, 12544, 12769, 12996, 13225, 13456, 13689, 13924, 14161, 14400, 14641, 14884, 15129, 15376, 15625, 15876, 16129], 
-u'main.suff_intra_par_18': [16], 
-u'main.suff_outer_par_17': [16, 64, 144, 256, 400, 576, 784, 1024, 1296, 1600, 1936, 2304, 2704, 3136, 3600, 4096, 4624, 5184, 5776, 6400, 7056, 7744, 8464, 9216, 10000, 10816, 11664, 12544, 13456, 14400, 15376, 16384, 17424, 18496, 19600, 20736, 21904, 23104, 24336, 25600, 26896, 28224, 29584, 30976, 32400, 33856, 35344, 36864, 38416, 40000, 41616, 43264, 44944, 46656, 48400, 50176, 51984, 53824, 55696, 57600, 59536, 61504, 63504, 65536, 67600, 69696, 71824, 73984, 76176, 78400, 80656, 82944, 85264, 87616, 90000, 92416, 94864, 97344, 99856, 102400, 104976, 107584, 110224, 112896, 115600, 118336, 121104, 123904, 126736, 129600, 132496, 135424, 138384, 141376, 144400, 147456, 150544, 153664, 156816, 160000, 163216, 166464, 169744, 173056, 176400, 179776, 183184, 186624, 190096, 193600, 197136, 200704, 204304, 207936, 211600, 215296, 219024, 222784, 226576, 230400, 234256, 238144, 242064, 246016, 250000, 254016, 258064], 
-u'main.suff_outer_par_19': [256, 1024, 2304, 4096, 6400, 9216, 12544, 16384, 20736, 25600, 30976, 36864, 43264, 50176, 57600, 65536, 73984, 82944, 92416, 102400, 112896, 123904, 135424, 147456, 160000, 173056, 186624, 200704, 215296, 230400, 246016, 262144, 278784, 295936, 313600, 331776, 350464, 369664, 389376, 409600, 430336, 451584, 473344, 495616, 518400, 541696, 565504, 589824, 614656, 640000, 665856, 692224, 719104, 746496, 774400, 802816, 831744, 861184, 891136, 921600, 952576, 984064, 1016064, 1048576, 1081600, 1115136, 1149184, 1183744, 1218816, 1254400, 1290496, 1327104, 1364224, 1401856, 1440000, 1478656, 1517824, 1557504, 1597696, 1638400, 1679616, 1721344, 1763584, 1806336, 1849600, 1893376, 1937664, 1982464, 2027776, 2073600, 2119936, 2166784, 2214144, 2262016, 2310400, 2359296, 2408704, 2458624, 2509056, 2560000, 2611456, 2663424, 2715904, 2768896, 2822400, 2876416, 2930944, 2985984, 3041536, 3097600, 3154176, 3211264, 3268864, 3326976, 3385600, 3444736, 3504384, 3564544, 3625216, 3686400, 3748096, 3810304, 3873024, 3936256, 4000000, 4064256, 4129024]}))])
 
-    """
+    # Only perform this step if there are variant-size conflicts remaining to fix.
     final_conf = dict(base_conf)
     if len(conflicts) != 0:
         print("Conflicts encountered in:")
         for name, options in conflicts.items():
             pplist = [val for (n, val) in options]
             print("{} with these options: {}".format(name, pplist))
-            
-            
+
+
         #print("Encountered the following variant-size conflicts:")
         #print(conflicts)
 
@@ -1073,7 +1055,7 @@ u'main.suff_outer_par_19': [256, 1024, 2304, 4096, 6400, 9216, 12544, 16384, 207
 
             # Use those options to extract "versions"
             print("Options: {}".format(options))
-            
+
             branch_versions = extract_versions(branch_tree[i])[::-1]
 
             # Initialize best-parameters.
@@ -1083,7 +1065,6 @@ u'main.suff_outer_par_19': [256, 1024, 2304, 4096, 6400, 9216, 12544, 16384, 207
 
             # Run each "version" to find the best one.
             for j, version in enumerate(branch_versions):
-                print(version)
                 # First, find the deepest True threshold, indicating the current tuning parameter
                 position = -1
                 for i, bool in enumerate(version):
@@ -1106,21 +1087,137 @@ u'main.suff_outer_par_19': [256, 1024, 2304, 4096, 6400, 9216, 12544, 16384, 207
                 best_threshold_time  = np.inf
 
                 loop_options = list(options[name])
-                print(loop_options)
-                print(name)
+
                 first = 0
                 last = len(loop_options) - 1
                 first_iteration = True
 
-                if len(loop_options) > 20:
+                if len(loop_options) > 5:
+                    #print("Starting Active Tuning")
                     # ACTIVE LEARNING USEFUL!!!
                     # We try to do active learning....
+                    polynomial_features= PolynomialFeatures(degree=2)
+                    model = LinearRegression()
                     
-                    
-                    
-                elif len(loop_options) > 5:
+                    numGuesses = 3
+                    guesses_tried = []
+                    runtimes = {}
+
+                    x_all = np.array(loop_options)[:, np.newaxis]
+                    x_all_poly = polynomial_features.fit_transform(x_all)
+
+                    #guesses = np.random.choice(len(loop_options), numGuesses, replace=False).astype(int)
+                    guesses = list(np.random.choice(range(len(loop_options) - 2), 3, replace=False))
+                    #guesses = guesses + [0, int(len(loop_options) / 2.0), len(loop_options) - 1]
+                    guesses_tried += list(guesses)
+                    if not first_iteration:
+                        guesses_tried = guesses_tried + [len(loop_options) - 1]
+                    else:
+                        first_iteration = False
+                    print("Starting with: {}".format(guesses_tried))
+
+
+                    x = [loop_options[i] for i in guesses]
+                    x_poly = polynomial_features.fit_transform(np.array(x)[:,np.newaxis])
+
+                    y = []
+                    for g in guesses:
+                        conf[name] = loop_options[g]
+                        with tempfile.NamedTemporaryFile() as json_tmp:
+                            bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
+
+                            num_executed += 1
+                            call_program(bench_cmd)
+                            json_data = json.load(json_tmp)
+                            results = json_data[program]['datasets']
+
+                            total_time = 0
+                            for dataset in results:
+                                runtime = int(np.mean(results[dataset]['runtimes']))
+                                total_time +=  runtime
+
+                            y.append(total_time)
+                            runtimes[loop_options[g]] = total_time
+                        print("Attempting {} giving f({}) = {}".format(g, g, total_time))
+
+                    x_poly = polynomial_features.fit_transform(np.array(x)[:,np.newaxis])
+                    model = LinearRegression()
+                    model.fit(x_poly, np.array(y)[:, np.newaxis])
+                    predictions = [int(e) for e in list(model.predict(x_all_poly).T[0])]
+                    candidate = np.argmin(predictions)
+                    old_candidate = -2
+                    while old_candidate != candidate:
+                        print(predictions)
+                        print("Predicted: {} with f({}) = {}".format(candidate, candidate, predictions[candidate]))
+                        old_candidate = candidate
+
+                        # Predict a new low-point, the lowest "predicted" so far.
+                        # This candidate was given from prior iteration of loop.
+                        guesses_tried.append(candidate)
+
+                        # Get the "true" benchmark for that guess
+                        x.append(loop_options[candidate])
+
+                        conf[name] = loop_options[candidate]
+                        with tempfile.NamedTemporaryFile() as json_tmp:
+                            bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
+
+                            num_executed += 1
+                            call_program(bench_cmd)
+                            json_data = json.load(json_tmp)
+                            results = json_data[program]['datasets']
+
+                            total_time = 0
+                            for dataset in results:
+                                runtime = int(np.mean(results[dataset]['runtimes']))
+                                total_time +=  runtime
+
+                            y.append(total_time)
+                            runtimes[loop_options[candidate]] = total_time
+
+                        print("Actual : {}".format(total_time))
+                        # Train a final model with this new point as well, and pick the final point
+                        x_poly = polynomial_features.fit_transform(np.array(x)[:,np.newaxis])
+                        model = LinearRegression()
+                        model.fit(x_poly, np.array(y)[:, np.newaxis])
+
+                        # Predict the next candidate.
+                        # If this is the earlier one, then we stop.
+                        predictions = [int(e) for e in list(model.predict(x_all_poly).T[0])]
+                        candidate = np.argmin(predictions)
+
+                    winner_index = candidate
+                    winner_T = loop_options[winner_index]
+
+                    if winner_T in runtimes:
+                        winner_R = runtimes[winner_T]
+                    else:
+                        with tempfile.NamedTemporaryFile() as json_tmp:
+                            conf[name] = winner_T
+                            bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
+
+                            num_executed += 1
+                            guesses_tried.append(winner_T)
+                            call_program(bench_cmd)
+                            json_data = json.load(json_tmp)
+                            results = json_data[program]['datasets']
+
+                            total_time = 0
+                            for dataset in results:
+                                runtime = int(np.mean(results[dataset]['runtimes']))
+                                total_time +=  runtime
+
+                            winner_R = total_time
+
+                    print("[{}s] Chose {} giving {} with runtimes {} using {} runs for threshold {}".format(int(time.time() - start), winner_index, winner_T, winner_R, len(guesses_tried), name))
+                    conf[name] = winner_T
+                    best_threshold_value = winner_T
+
+                elif False: #len(loop_options) > 5:
                     # Binary-Search Choice
+                    numBin = 0
                     while len(loop_options[first:last]) != 0:
+                        numBin += 1
                         if first_iteration:
                             midpoint = 0
                         else:
@@ -1134,10 +1231,7 @@ u'main.suff_outer_par_19': [256, 1024, 2304, 4096, 6400, 9216, 12544, 16384, 207
 
                         # Run the benchmark.
                         with tempfile.NamedTemporaryFile() as json_tmp:
-                            if i == 0:
-                                bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
-                            else:
-                                bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
+                            bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
 
                             num_executed += 1
                             call_program(bench_cmd)
@@ -1170,7 +1264,7 @@ u'main.suff_outer_par_19': [256, 1024, 2304, 4096, 6400, 9216, 12544, 16384, 207
 
                         # If first iteration of binary search, set stuff.
                         if first_iteration:
-                            print("Current best {} is {} with {}".format(name, val, total_time))
+                            print("[{}s] Current best {} is {} with {}".format(int(time.time() - start), name, val, total_time))
                             best_threshold_time = total_time
                             best_threshold_value = val
                             first_iteration = False
@@ -1179,21 +1273,31 @@ u'main.suff_outer_par_19': [256, 1024, 2304, 4096, 6400, 9216, 12544, 16384, 207
 
                         # Update "best" current threshold value
                         if total_time < best_threshold_time:
-                            print("Current best {} is {} with {}".format(name, val, total_time))
+                            print("[{}s] Current best {} is {} with {}".format(int(time.time() - start), name, val, total_time))
                             best_threshold_time = total_time
                             best_threshold_value = val
                             first = midpoint + 1
                         else:
                             last = midpoint - 1
+                    print("BINARY SEARCH USED {} EXECUTIONS FOR T: {}".format(numBin, name))
                 else:
                     # Exhaustive-Search Choice
                     # Just try every version, since there are so few.
 
-                    #plot_list_x = []
-                    #plot_list_y = []
+                    plot_list_x = []
+                    plot_list_y = []
 
                     for k, current_option in enumerate(options[name]):
-                        name, val = current_option
+
+                        # Due to sloppy coding, current_option can either be a tuple (name, val) or it can be just val....
+                        # So we try one, and if the unpacking of the tuple fails, then it's the other. 
+                        # This is purely sloppy coding, sorry.
+                        try:
+                            namehere, val = current_option
+                            name = namehere
+                        except:
+                            val = current_option
+
                         print("[{}s] Trying value {} for threshold {}".format( int(time.time() - start), val, name ))
 
                         # Update the specific conflict-threshold's value to this possible option.
@@ -1241,17 +1345,59 @@ u'main.suff_outer_par_19': [256, 1024, 2304, 4096, 6400, 9216, 12544, 16384, 207
                             best_threshold_time = total_time
                             best_threshold_value = val
 
-                        #plot_list_x.append(val)
-                        #plot_list_y.append(runtime)
+                        plot_list_x.append(val)
+                        plot_list_y.append(total_time)
 
                     # Printing for a plot thingy, not used.
+                    #print("")
+                    #print(name)
                     #print(plot_list_x)
                     #print(plot_list_y)
+                    #print("")
 
-                print("Chose the following threshold for {} : {}".format(name, best_threshold_value))
+                print("[{}s] Chose the following threshold for {} : {}".format(int(time.time() - start), name, best_threshold_value))
                 final_conf[name] = best_threshold_value
-    
 
+    best_tile = 16
+
+    best_tile_time = np.inf
+
+    print("Skipping tile-calib, just debug")
+
+    tiles = [4, 8, 16, 32, 64]
+
+    print("[{}s]Starting Tile-Size Calibration: {}".format(int(time.time() - start), tiles))
+    for tile in tiles:
+        print("[{}s] Trying Tile: {}".format(int(time.time() - start), tile))
+        with tempfile.NamedTemporaryFile() as json_tmp:
+            bench_cmd = futhark_bench_cmd(final_conf, json_tmp, None, tile)
+            num_executed += 1
+            call_program(bench_cmd)
+
+            json_data = json.load(json_tmp)
+            results = json_data[program]['datasets']
+            total_time = 0
+
+            for dataset in results:
+                try:
+                    runtime = int(np.mean(results[dataset]['runtimes']))
+                    total_time +=  runtime
+
+                    #print("[{}s] Dataset {} ran in {} with tile-size {}".format(int(time.time() - start), dataset, runtime, tile))
+
+                    if best_times[dataset] > runtime:
+                        best_times[dataset] = runtime
+
+
+                except:
+                    # It timed out on this dataset
+                    # This means I add the total "best" to this one, as it can't be better anyway.
+                    total_time += np.inf
+
+            if total_time < best_tile_time:
+                print("Chose new best tile-size at {} with {} compared to old {}".format(tile, total_time, best_tile_time))
+                best_tile = tile
+                best_tile_time = total_time
 
     # Report the results
     script_results.append( (time.time() - start, futhark_bench_cmd(final_conf, None, None, best_tile), num_executed) )
@@ -1270,6 +1416,12 @@ for i, program in enumerate(programs):
     print("")
     print("Final command for target program {}, took {}s, with {} executions".format(program[:-4], int(time_taken), num_executed))
     print(bench_cmd.replace(' --exclude-case=notune ', ' '))
+    
+print("Saving all final benchmarks in JSON files for results.")
+for i, program in enumerate(programs):
+    print("Saving results of {}".format(program))
+    (time_taken, bench_cmd, num_executed) = script_results[i]
+    call_program(bench_cmd.replace(' --exclude-case=notune ', ' ') + ' --json=active-{}.json'.format(program[:-4]))
 
 
 
