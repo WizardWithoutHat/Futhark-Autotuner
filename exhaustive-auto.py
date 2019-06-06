@@ -1765,17 +1765,6 @@ futhark bench --skip-compilation lud-clean.fut --pass-option --default-tile-size
 
 
 
-Harpers:  Ikke helt tilfreds med ikke at bringe Thay til bordet, men derudover har de intet valg end at støtte the cause med al vores magt.
-Gauntlet: Jeres Heroism er without question, og ligeså vores loyalitet!
-Emerald Enclave: Få kunne overtale de metalliske drager, og jeres villighed til ikke at ofre jeres morale for at bringe Thay til bordet har forsikret mig om jeres karakter. I har min støtte.
-Laeral Silverhand: Jeres handlinger taler nok, i har min støtte.
-Neverember: Hvis ikke vi gav vores støtte, ville det hele være fortabt.
-King Melandrach: I hjalp med at bringe min sorg til en ende, i har min støtte.
-Connerad: Mere effektive dragejægere eksisterer ikke. At i ikke værdsætter mit folks kultur, skal ikke stoppe mit folk fra at vise hvor meget bedre vi er end elverne!
-Ulder: Intet har ville stoppe jer for at sikre vores sejr, og ligeså vil intet stoppe mig!
-Taern: Aye!
-Sir Isteval: Aye!
-
 
 
 PLAN OF ATTACK:
@@ -1784,7 +1773,7 @@ Siege-formation for all the forces, with Druids focusing on Earthbind, Rangers g
 Metal Dragons assisting. Arcane Brotherhood skaffer et par rune-bombs til partyet.
 Harpers: Find information on where Severin is + map to get there.
 
-Hakak har underskrevet kontrakt, om at få Elsandoral tilbage i kampen.
+Hakak har underskrevet kontrakt, om at faa Elsandoral tilbage i kampen.
 
 
 
