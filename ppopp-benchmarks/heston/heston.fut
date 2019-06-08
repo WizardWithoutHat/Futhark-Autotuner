@@ -68,9 +68,9 @@ let run_calibration({today,
     (let (price, vega) = pricer.bs_call true today (int 1) strike maturity quote
      in (price, real.max (real.f64 1e-1) vega))
   let strike_weight (p: real) (x: real) = real.(exp (p * (log x + int 1 - x)))
-  let maturity_weight (x0: real) (gamma: real) (x: real) =
-      (let k = real.(int 1 / (exp(gamma * x0) - int 1))
-       in real.(if x <= x0 then k * (exp(gamma * x) - int 1) else int 1))
+  let maturity_weight (x0: real) (mgamma: real) (x: real) =
+      (let k = real.(int 1 / (exp(mgamma * x0) - int 1))
+       in real.(if x <= x0 then k * (exp(mgamma * x) - int 1) else int 1))
   let weight (strike: real) (mat: date) =
     real.(maturity_weight maturity_weight_x0 maturity_weight_gamma (f64 (diff_dates today mat)) *
           strike_weight strike_weight_bandwidth strike)
@@ -107,7 +107,7 @@ let date_of_int(x: i32) =
   let y = x/10000
   in date_of_triple (y, m, d)
 
-let default_variables: []real_least_squares.optimization_variable =
+let default_variables: [5]real_least_squares.optimization_variable =
   [real_least_squares.optimize_value
    {lower_bound =  real.f64 1e-6, initial_value = real.f64 4e-2, upper_bound = int 1},
    real_least_squares.optimize_value
