@@ -422,12 +422,19 @@ def nearest_power_of_2(x):
 def evaluation_function(threshold_list, baseconf, name_list):
     #Convert input list to conf
     conf = baseconf
+    
+    global eparPrThreshold
 
     for name, val in zip(name_list, threshold_list):
-        if val < 1:
-            val = 1
-
-        conf[name] = int(val)
+        epars = eparPrThreshold[name]
+        if val > ( len(epars) - 1 ):
+            valC = epars[-1]
+        elif val < 0:
+            valC = epars[0]
+        else:
+            valC = epars[int(round(val))]
+            
+        conf[name] = valC
 
     tile = 16
 
@@ -573,6 +580,22 @@ def futhark_autotune_program(program):
     print("Threshold Names: {}".format(threshold_names))
     print("")
 
+    global eparPrThreshold
+    eparPrThreshold = {}
+    for dataset in datasets:
+        for T, vals in thresholds[dataset].items():
+            if T not in eparPrThreshold:
+                eparPrThreshold[T] = set()
+            
+            for v in vals:
+                eparPrThreshold[T].add(v)
+
+    for T, epars in eparPrThreshold.items():
+        eparPrThreshold[T] = list(epars)
+        eparPrThreshold[T].sort()
+        eparPrThreshold[T] = eparPrThreshold[T] + [eparPrThreshold[T][-1] + 1]
+
+
     #================================#
     # STAGE 2 - Run CMA-ES algorithm #
     #================================#
@@ -621,17 +644,16 @@ def futhark_autotune_program(program):
         print("Overhead: {}".format(overhead))
 
     baseline = []
+    max_length = 0
     for name in threshold_names:
-        param_list = []
-
-        for dataset in datasets:
-            print("Thresholds[{}][{}]: {}".format(dataset, name, thresholds[dataset][name]))
-            if len(thresholds[dataset][name]) == 0:
-                continue
-            else:
-                param_list.append(thresholds[dataset][name][0])
-
-        baseline.append(int(np.mean(param_list)))
+        baseline.append(np.random.randint(len(eparPrThreshold[name]) - 1))
+        #baseline.append((len(eparPrThreshold[name])) - 1) 
+        max_length = max(max_length, len(eparPrThreshold[name]))
+        
+    for T, vals in eparPrThreshold.items():
+        print(T)
+        print(vals)
+        print("")
 
     global num_skipped
     global num_executed
@@ -654,13 +676,12 @@ def futhark_autotune_program(program):
                 baseconf[name] = val
 
         branch_threshold_names = threshold_names[depth_before:depth_before+depth]
-        print("TRYING")
-        print(branch_threshold_names)
 
         branch_result = cma.fmin(evaluation_function,
                                  baseline[depth_before:depth_before+depth],
-                                 int(max_comparison * 0.40),
-                                 {'popsize': 4 + int(3 * np.log2(len(baseline[depth_before:depth_before+depth]))), 'timeout': timeout_val},
+                                 int(max_length * 0.4),
+#                                 {'popsize': 4 + int(3 * np.log2(len(baseline[depth_before:depth_before+depth]))), 'timeout': timeout_val},
+                                 {'timeout': timeout_val},
                                  args=([baseconf, branch_threshold_names]))
 
         baseline[depth_before:depth_before+depth] = branch_result[0]
@@ -675,10 +696,16 @@ def futhark_autotune_program(program):
 
     conf = {}
     for name, val in zip(threshold_names, baseline):
-        if val < 1:
-            val = 1
+        epars = eparPrThreshold[name]
+        if val > ( len(epars) - 1 ):
+            valC = epars[-1]
+        elif val < 0:
+            valC = epars[0]
+        else:
+            valC = epars[int(round(val))]
+            
+        conf[name] = valC
 
-        conf[name] = int(val)
 
     final_command = futhark_bench_cmd(conf, None, None, 16)#nearest_power_of_2(x[0][-1]))
     print(final_command)
@@ -711,7 +738,7 @@ print("Saving all final benchmarks in JSON files for results.")
 for i, program in enumerate(programs):
     print("Saving results of {}".format(program))
     bench_cmd = results[i]
-    call_program(bench_cmd.replace(' --exclude-case=notune ', ' ') + ' --json=cma-{}.json'.format(program[:-4]))
+    call_program(bench_cmd.replace(' --exclude-case=notune ', ' ') + ' --json=cmaindex-{}.json'.format(program[:-4]))
 
 
 
@@ -719,98 +746,21 @@ for i, program in enumerate(programs):
 #===============#
 # NOTES SECTION #
 #===============#
+STD 0.2, START ALL FALSE
 
-REMEMBER TO WRITE A MAIL TO COSMIN
-ASK HIM ABOUT threshold=0, IT SEEMS TO BEHAVE WEIRD!!!
-TRY TO CRAFT EXAMPLE.
+final/bestever f-value = 4.151580e+00 4.151580e+00
+incumbent solution: [427.97590102757437, 190.80570857953003, 297.1507132374066, 156.12710466066298, 167.8115921723468, 304.9101543747904, -147.61593116676286, -127.88419873130219]
+std deviation: [14.41058404801892, 5.975905584642869, 6.7120389330754975, 7.447574544194475, 0.343956113244602, 12.031146843637616, 8.278704396533325, 11.235320572478072]
+[5005s] Skipped 1118 total executions by caching
+[5005s] Performed 261 total experiments
+[5005s] Had 16 failed executions
+FINAL BENCH COMMAND:
+futhark bench --skip-compilation --exclude-case=notune lud-clean.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_outer_par_15=285 --pass-option --size=main.suff_outer_par_13=415 --pass-option --size=main.suff_outer_par_17=168 --pass-option --size=main.suff_intra_par_20=1 --pass-option --size=main.suff_intra_par_16=142 --pass-option --size=main.suff_intra_par_18=95 --pass-option --size=main.suff_intra_par_14=48 --pass-option --size=main.suff_outer_par_19=1
 
-
-#================#
-# FABIAN MEETING #
-#================#
-Look into:
- CMA-ES (BlackBox optimization)
- Meta-Optimization
- Active Learning (Learning with a Budget)
-
-#===========#
-# TILE SIZE #
-#===========#
+Final command for target program lud-clean
+futhark bench --skip-compilation --exclude-case=notune lud-clean.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_outer_par_15=285 --pass-option --size=main.suff_outer_par_13=415 --pass-option --size=main.suff_outer_par_17=168 --pass-option --size=main.suff_intra_par_20=1 --pass-option --size=main.suff_intra_par_16=142 --pass-option --size=main.suff_intra_par_18=95 --pass-option --size=main.suff_intra_par_14=48 --pass-option --size=main.suff_outer_par_19=1
 
 
-#======================#
-# VARIANT-SIZE TESTING #
-#======================#
-Best so far:
-futhark bench --skip-compilation --exclude-case=notune variant.fut --pass-option --size=main.suff_outer_par_3=710 --pass-option --size=main.suff_intra_par_4=378072 --pass-option --size=main.suff_outer_par_0=71417 --pass-option --size=main.suff_intra_par_1=276395
-
-
-[223s] Attempting execution path:
-D0L8LE2
-D1L7LE2
-D2L5LE2
-D3L3LE2
-
-[229s] REPRODUCTION EXAMPLE: 171778 vs CACHED VALUE: 129963
-REPRODUCTION CMD:
-futhark bench --skip-compilation --exclude-case=notune variant.fut --json=/tmp/tmpYnkehM --pass-option --size=main.suff_outer_par_3=791145 --pass-option --size=main.suff_intra_par_4=8445 --pass-option --size=main.suff_outer_par_0=339196 --pass-option --size=main.suff_intra_par_1=1
-OLD CACHED CMD:
-futhark bench --skip-compilation --exclude-case=notune variant.fut --json=/tmp/tmpasmFKp --pass-option --size=main.suff_outer_par_3=1 --pass-option --size=main.suff_intra_par_4=1 --pass-option --size=main.suff_outer_par_0=493347 --pass-option --size=main.suff_intra_par_1=1
-
-
-
-#======#
-# SRAD #
-#======#
-
-
-#=============#
-# LocVolCalib #
-#=============#
-[{False:
-    [{False:
-        [{False:
-            [{False:
-                [{False:
-                    [{False:
-                        [{'name': 'end', 'id': 13}],
-                      True:
-                        [{'name': 'end', 'id': 12}],
-                      'name': 'main.suff_intra_par_17'}],
-                  True: [{'name': 'end', 'id': 8}],
-                 'name': 'main.suff_outer_par_16'},
-                 {False:
-                    [{False:
-                        [{'name': 'end', 'id': 15}],
-                      True:
-                        [{'name': 'end', 'id': 14}],
-                     'name': 'main.suff_intra_par_9'}],
-                  True: [{'name': 'end', 'id': 10}],
-                 'name': 'main.suff_outer_par_8'}],
-              True: [{'name': 'end', 'id': 6}],
-             'name': 'main.suff_intra_par_7'}],
-          True: [{'name': 'end', 'id': 4}],
-         'name': 'main.suff_outer_par_6'}],
-      True: [{'name': 'end', 'id': 2}],
-     'name': 'main.suff_intra_par_5'}],
-  True: [{'name': 'end', 'id': 0}],
- 'name': 'main.suff_outer_par_4'}]
-
-
-#=======#
-# BFAST #
-#=======#
-
-THIS IS COSMINS OWN VERSION:
-FUTHARK_INCREMENTAL_FLATTENING=1 futhark bench --backend opencl --pass-option --default-tile-size=16 --pass-option --size=main.suff_outer_par_6=50000000 --pass-option --size=main.suff_intra_par_7=2048 --pass-option --size=main.suff_outer_par_8=50000000 --pass-option --size=main.suff_intra_par_9=2048 --pass-option --size=main.suff_outer_par_10=1  --pass-option --size=main.suff_intra_par_11=2048 --pass-option --size=main.suff_intra_par_13=1 --pass-option --size=main.suff_outer_par_17=50000000  --pass-option --size=main.suff_intra_par_18=2048  --pass-option --size=main.suff_outer_par_19=1 --pass-option --size=main.suff_intra_par_20=2048  --pass-option --size=main.suff_outer_par_21=50000000 --pass-option --size=main.suff_intra_par_22=2048  --pass-option --size=main.suff_outer_par_23=50000000 --pass-option --size=main.suff_intra_par_24=2048  --pass-option --size=main.suff_outer_par_25=50000000 --pass-option --size=main.suff_intra_par_26=2048  --pass-option --size=main.suff_outer_par_27=1 --pass-option --size=main.suff_intra_par_28=2048  --pass-option --size=main.suff_outer_par_29=50000000 --pass-option --size=main.suff_intra_par_30=1  --pass-option --size=main.suff_outer_par_33=50000000 --pass-option --size=main.suff_intra_par_34=1  --pass-option --size=main.suff_outer_par_35=50000000 --pass-option --size=main.suff_intra_par_36=2048 --pass-option --size=main.suff_outer_par_38=50000000 --pass-option --size=main.suff_intra_par_39=1 bfast.fut
-
-8 timers CMA virkede ikke ...
-futhark bench --skip-compilation --exclude-case=notune bfast-ours.fut --pass-option --default-tile-size=4194304 --pass-option --size=main.suff_outer_par_29=38381117 --pass-option --size=main.suff_outer_par_23=1 --pass-option --size=main.suff_outer_par_21=27585771 --pass-option --size=main.suff_outer_par_27=1 --pass-option --size=main.suff_outer_par_25=31206610 --pass-option --size=main.suff_intra_par_24=42001483 --pass-option --size=main.suff_intra_par_26=37791839 --pass-option --size=main.suff_intra_par_20=1 --pass-option --size=main.suff_intra_par_22=26582553 --pass-option --size=main.suff_intra_par_28=47090064 --pass-option --size=main.suff_outer_par_38=33650626 --pass-option --size=main.suff_outer_par_33=3099676 --pass-option --size=main.suff_outer_par_35=27678384 --pass-option --size=main.suff_outer_par_10=1 --pass-option --size=main.suff_outer_par_17=12102470 --pass-option --size=main.suff_outer_par_19=1 --pass-option --size=main.suff_intra_par_7=1 --pass-option --size=main.suff_intra_par_9=87007 --pass-option --size=main.suff_intra_par_36=16086737 --pass-option --size=main.suff_intra_par_11=1 --pass-option --size=main.suff_intra_par_34=1 --pass-option --size=main.suff_intra_par_13=1 --pass-option --size=main.suff_outer_par_6=1 --pass-option --size=main.suff_intra_par_30=1 --pass-option --size=main.suff_intra_par_18=11603354 --pass-option --size=main.suff_outer_par_8=13313207 --pass-option --size=main.suff_intra_par_39=1
-
-2 timers CMA virkede ikke
-futhark bench --skip-compilation --exclude-case=notune bfast-ours.fut --pass-option --default-tile-size=4194304 --pass-option --size=main.suff_outer_par_29=38675749 --pass-option --size=main.suff_outer_par_23=1 --pass-option --size=main.suff_outer_par_21=9217883 --pass-option --size=main.suff_outer_par_27=6496481 --pass-option --size=main.suff_outer_par_25=12074773 --pass-option --size=main.suff_intra_par_24=1 --pass-option --size=main.suff_intra_par_26=20734606 --pass-option --size=main.suff_intra_par_20=1 --pass-option --size=main.suff_intra_par_22=23985138 --pass-option --size=main.suff_intra_par_28=31418459 --pass-option --size=main.suff_outer_par_38=43240138 --pass-option --size=main.suff_outer_par_33=12443878 --pass-option --size=main.suff_outer_par_35=1 --pass-option --size=main.suff_outer_par_10=20566158 --pass-option --size=main.suff_outer_par_17=1 --pass-option --size=main.suff_outer_par_19=1923576 --pass-option --size=main.suff_intra_par_7=11925201 --pass-option --size=main.suff_intra_par_9=2277969 --pass-option --size=main.suff_intra_par_36=868184 --pass-option --size=main.suff_intra_par_11=1 --pass-option --size=main.suff_intra_par_34=1 --pass-option --size=main.suff_intra_par_13=1 --pass-option --size=main.suff_outer_par_6=1 --pass-option --size=main.suff_intra_par_30=1 --pass-option --size=main.suff_intra_par_18=1 --pass-option --size=main.suff_outer_par_8=1 --pass-option --size=main.suff_intra_par_39=1
-
-PROEV AT LAVE EN BY-BRANCH CMA INSTEAD!
 
 #=================#
 # CMA OPTION LIST #

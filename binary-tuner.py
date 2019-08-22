@@ -17,6 +17,9 @@ import itertools
 import time
 import logging
 import numpy as np
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
 
 from collections import OrderedDict, defaultdict
 
@@ -267,7 +270,7 @@ def depth_of_branch(tree, depth):
             depth = max(depth, depth_of_branch(branch, depth + 1))
 
         return depth
-        
+
 
 def get_depth_first_nodes(root):
     nodes = []
@@ -352,6 +355,56 @@ def extract_versions(branch):
 
     return versions
 
+
+
+# Function to extract all "versions" for a branch.
+# One version is a list of booleans, each corresponding to a threshold.
+# The resulting list-of-lists has one list pr. code-version possible in that branch.
+# This means running all of those "versions" results in exhaustive search.
+def extract_versions_OLD(depth, tree):
+    versions = []
+
+    # If True leads to an end, the remaining thresholds are set to False.
+    # This is because each "version" has to have a value for _every_ threshold.
+    if tree[True][0]['name'] == 'end':
+        versions.append([True] + [False for x in range(depth - 1)])
+
+
+    # If there are multiple "false" paths, combinations of thresholds are neccesary.
+    # This is because each of these paths are independent from each other, much like this one here.
+    if len(tree[False]) > 1:
+        splits = []
+        # Extract versions for each branch independently.
+        for i, branch in enumerate(tree[False]):
+            splits.append([])
+            res = extract_versions_OLD(depth_of_branch(branch, 0), branch)
+            for v in res:
+                splits[i].append(v)
+
+        # Combine all lists, with the base already computed.
+        # Basic code for creating "combinations".
+        tmp_versions = [[False]]
+        for split in splits:
+            new_tmp = []
+            for i, version1 in enumerate(split):
+                for version2 in tmp_versions:
+                    new_tmp.append(version2 + version1)
+
+            tmp_versions = new_tmp
+        return tmp_versions
+    else:
+        # Just 1 False-path exists.
+        # If it is an end, we know we have reached the end.
+        if tree[False][0]['name'] == 'end':
+            versions.append([False])
+        else:
+            # If it was not the end, we recursively continue.
+            res = extract_versions_OLD(depth - 1, tree[False][0])
+            for v in res:
+                    versions.append([False] + v)
+
+    return versions
+
 # Code to create a string from a list of booleans.
 # Useful for indexing "versions" into dicts.
 def version_to_string(version):
@@ -383,9 +436,6 @@ def compute_execution_path(threshold_conf):
             result_string += part_branch
 
     return result_string
-
-
-
 
 # Letter is used to differentiate the kind of version.
 # 'V' = Standard branch, default.
@@ -618,20 +668,14 @@ for program in programs:
     print("Threshold Names DEPTH: {}".format(extract_names(branch_tree[0])))
     print("")
 
-    print("EXTRACT_VERSIONS")
-    print(extract_versions(branch_tree[0]))
+    #print("EXTRACT_VERSIONS")
+    #print(extract_versions(branch_tree[0]))
 
-    #===============================#
-    # STAGE 2 - Full Benchmark Pass #
-    #===============================#
 
-    # OPTIMIZE DATASET-ORIENTED!
-    # For each "code version", run the benchmark from the deepest-most version first.
-    # For each run, load out the benchmarking output such that each datasets' runtime can be extracted.
-    # Keep track of the "best" version for each dataset as the benchmarking continnes
-    # In each version, all thresholds are either "TRUE" or "FALSE" for all datasets, to try all versions for all datasets.
-    # (Also, keep track of the time, such that a dynamic timeout can be used. Since there is only 1 timeout, it is the longest running dataset so far)
 
+    #=============================================#
+    # PREPARE THE FIRST BENCHMARK, AND GET READY! #
+    #=============================================#
     execution_cache = {}
     best_times = {}
     best_versions = {}
@@ -693,14 +737,11 @@ for program in programs:
         num_versions += len(extract_versions(branch_tree[i]))
     current_version_num = 1
 
-    #======================#
-    # STRATEGY EXPLANATION #
-    #======================#======================================================================#
-    # A baseline has been created, starting with all-false thresholds.                            #
-    # From here, each Branch has all their code-versions benchmarked.                             #
-    # The best version from this branch is then incorporated in the baseline for future branches. #
-    # While doing the benchmarking, best versions pr. dataset along with their times is recorded. #
-    #=============================================================================================#
+
+
+    #====================================#
+    # EXHAUSTIVE TUNING OF EASY BRANCHES #
+    #====================================#
 
     for depth, i in deepest_first_order:
         # Calculate the number of thresholds before and after this branch.
@@ -959,65 +1000,20 @@ for program in programs:
             print("Dataset {} has seen best {} so far.".format(dataset, runtime))
 
 
-    # Report the "final" base-version, which is NOT the final
-    print("REPRODUCE FINAL BASE-VERSION:")
-    print(futhark_bench_cmd(base_conf, None, None, None))
+    #======================#
+    # ACTIVE LEARNING      #
+    # STRATEGY EXPLANATION #
+    #======================#====================================================================#
+    # The goal of Active Learning is to make informed decisions about which datapoints to query #
+    # Currently, this is relaxed to trying a few uninformed uniform guesses first.              #
+    # Afterwards, a "predictive model" of how the objective function looks is estimated roughly #
+    # A new point is queried, and the model is validated on how accurately it predicted.        #
+    # Repeat a few times until pretty certain of result, and pick best point so far.            #
+    #                                                                                           #
+    # This is done only for the "difficult" problem of multiple-option thresholds.              #
+    #===========================================================================================#
 
-    print("Finished the benchmarks!")
-    print("Best-Times: ")
-    print(best_times)
-    print("")
-    print("Best Versions: ")
-    print(best_versions)
-    print("Took {}s".format(time.time() - start))
-
-    #===========================================#
-    # STAGE 3: Variant-Size Conflict Resolution #
-    #===========================================#===========================================================#
-    # In this stage, the information from Stage 2 is processed.                                             #
-    # The goal is to choose values such that _all_ datasets get the version they prefer.                    #
-    # This is not always possible, but should be for some thresholds.                                       #
-    #                                                                                                       #
-    # First, "ranges" of possible max and min values for each threshold is computed.                        #
-    # Then, these are merged for every dataset, to find the "range" that fits best.                         #
-    # If this range is valid (i.e. min < max), then the max value is chosen (any value inbetween will work) #
-    # If it is invalid, it is a conflict.                                                                   #
-    #                                                                                                       #
-    # Finally, a second benchmark pass seeks to resolve each conflict, by choosing the best option.         #
-    # This is done in a similar way to in Stage 2, i.e. going through each branch independently.            #
-    # In the end, the final thresholds for each is reported.                                                #
-    #=======================================================================================================#
-
-
-
-
-    if len(conflicts) != 0:
-        print("Conflicts encountered in:")
-        for name, options in conflicts.items():
-            pplist = [val for (n, val) in options]
-            print("{} with these options: {}".format(name, pplist))
-
-    # Conflict Resolution Strategy:
-    # Loop over each branch, like in Stage 2
-    # Check which conflicts lie in this branch.
-    # Create all different tie-breaking versions in that branch. (Meaning we only redo important benchmarks)
-    # Test each, measured by total runtime, and use the best one as final value.
-
-    # Creating versions:
-    # All "final" valid threshold values are kept as they are (FIXED)
-    # Create "combinations" of the list of conflicts, to have all possible resolution-versions.
-    def combinations(lists):
-        versions = []
-        a = lists[0]
-        if len(lists) == 1:
-            return [[a[0]], [a[1]]]
-        else:
-            for option in a:
-                next = combinations(lists[1:])
-                for comb in next:
-                    versions.append([option] + comb)
-            return versions
-
+    # Only perform this step if there are variant-size conflicts remaining to fix.
     final_conf = dict(base_conf)
     if len(conflicts) != 0:
         print("Conflicts encountered in:")
@@ -1037,7 +1033,7 @@ for program in programs:
                 continue
 
             # Extract possible "options" for each threshold involved in this branch.
-            options = []
+            options = {}
             numOptions = 0
 
             # Add all conflict-values to the option list
@@ -1046,35 +1042,30 @@ for program in programs:
                     numOptions += len(val)
                     sortedVals = sorted(val, key=lambda x: x[1])
                     sortedVals.append((name, sortedVals[-1][1] + 1))
-                    options.append(sortedVals[::-1])
+                    options[name] = [x for (n, x) in sortedVals][::-1]
 
             # Add the remaining "simple" thresholds (if any)
             for name in branch_names:
                 # Skip all the "difficult" ones already covered
-                for optionList in options:
-                    if(optionList[0][0] == name):
-                        continue
+                if name in options:
+                    continue
 
-                options.append([(name, 1), (name, final_conf[name])])
+                options[name] = ([(name, 1), (name, final_conf[name])]) #Adds the "Always True" and "ALways False" paths
 
-            if len(options) == 0:
-                print("How did this happen!?!?")
-                continue
 
             # Use those options to extract "versions"
             print("Options: {}".format(options))
-            #branch_combinations = combinations(options)
+
             branch_versions = extract_versions(branch_tree[i])[::-1]
 
             # Initialize best-parameters.
             best_branch_time = 0
 
-            print("[{}s] Breaking conflicts in Branch {}, found {} conflicts over {} thresholds.".format(int(time.time() - start), i, numOptions,len(options)))
+            print("[{}s] Breaking conflicts in Branch {}, found {} conflicts over {} thresholds.".format(int(time.time() - start), i, numOptions, len(options)))
 
             # Run each "version" to find the best one.
             for j, version in enumerate(branch_versions):
-                # First, find the True threshold, indicating the current tuning parameter
-                # THIS ASSUMES NO HORIZONTAL OPTIMIZATIONS IN A VARIANT-SIZE LOOP!
+                # First, find the deepest True threshold, indicating the current tuning parameter
                 position = -1
                 for i, bool in enumerate(version):
                     if bool:
@@ -1088,30 +1079,151 @@ for program in programs:
                 print("[{}s] Finding best value for threshold {}".format(int(time.time() - start), branch_names[position]))
 
                 # Find the index of this threshold in Options
-                optionPosition = -1
-                for k in range(len(options)):
-                    if options[k][0][0] == branch_names[position]:
-                        optionPosition = k
-                        break
+                name = branch_names[position]
 
                 conf = dict(final_conf) #Copy the "fixed" values
 
                 best_threshold_value = 0
                 best_threshold_time  = np.inf
 
-                loop_options = list(options[optionPosition])
+                loop_options = list(options[name])
+
                 first = 0
                 last = len(loop_options) - 1
                 first_iteration = True
 
-                if len(loop_options) > 4:
+                if False: # len(loop_options) > 5:
+                    #print("Starting Active Tuning")
+                    # ACTIVE LEARNING USEFUL!!!
+                    # We try to do active learning....
+                    polynomial_features= PolynomialFeatures(degree=2)
+                    model = LinearRegression()
+                    
+                    numGuesses = 3
+                    guesses_tried = []
+                    runtimes = {}
+
+                    x_all = np.array(loop_options)[:, np.newaxis]
+                    x_all_poly = polynomial_features.fit_transform(x_all)
+
+                    #guesses = np.random.choice(len(loop_options), numGuesses, replace=False).astype(int)
+                    guesses = list(np.random.choice(range(len(loop_options) - 2), 3, replace=False))
+                    #guesses = guesses + [0, int(len(loop_options) / 2.0), len(loop_options) - 1]
+                    guesses_tried += list(guesses)
+                    if not first_iteration:
+                        guesses_tried = guesses_tried + [len(loop_options) - 1]
+                    else:
+                        first_iteration = False
+                    print("Starting with: {}".format(guesses_tried))
+
+
+                    x = [loop_options[i] for i in guesses]
+                    x_poly = polynomial_features.fit_transform(np.array(x)[:,np.newaxis])
+
+                    y = []
+                    for g in guesses:
+                        conf[name] = loop_options[g]
+                        with tempfile.NamedTemporaryFile() as json_tmp:
+                            bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
+
+                            num_executed += 1
+                            call_program(bench_cmd)
+                            json_data = json.load(json_tmp)
+                            results = json_data[program]['datasets']
+
+                            total_time = 0
+                            for dataset in results:
+                                runtime = int(np.mean(results[dataset]['runtimes']))
+                                total_time +=  runtime
+
+                            y.append(total_time)
+                            runtimes[loop_options[g]] = total_time
+                        print("Attempting {} giving f({}) = {}".format(g, g, total_time))
+
+                    x_poly = polynomial_features.fit_transform(np.array(x)[:,np.newaxis])
+                    model = LinearRegression()
+                    model.fit(x_poly, np.array(y)[:, np.newaxis])
+                    predictions = [int(e) for e in list(model.predict(x_all_poly).T[0])]
+                    candidate = np.argmin(predictions)
+                    old_candidate = -2
+                    while old_candidate != candidate:
+                        print(predictions)
+                        print("Predicted: {} with f({}) = {}".format(candidate, candidate, predictions[candidate]))
+                        old_candidate = candidate
+
+                        # Predict a new low-point, the lowest "predicted" so far.
+                        # This candidate was given from prior iteration of loop.
+                        guesses_tried.append(candidate)
+
+                        # Get the "true" benchmark for that guess
+                        x.append(loop_options[candidate])
+
+                        conf[name] = loop_options[candidate]
+                        with tempfile.NamedTemporaryFile() as json_tmp:
+                            bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
+
+                            num_executed += 1
+                            call_program(bench_cmd)
+                            json_data = json.load(json_tmp)
+                            results = json_data[program]['datasets']
+
+                            total_time = 0
+                            for dataset in results:
+                                runtime = int(np.mean(results[dataset]['runtimes']))
+                                total_time +=  runtime
+
+                            y.append(total_time)
+                            runtimes[loop_options[candidate]] = total_time
+
+                        print("Actual : {}".format(total_time))
+                        # Train a final model with this new point as well, and pick the final point
+                        x_poly = polynomial_features.fit_transform(np.array(x)[:,np.newaxis])
+                        model = LinearRegression()
+                        model.fit(x_poly, np.array(y)[:, np.newaxis])
+
+                        # Predict the next candidate.
+                        # If this is the earlier one, then we stop.
+                        predictions = [int(e) for e in list(model.predict(x_all_poly).T[0])]
+                        candidate = np.argmin(predictions)
+
+                    winner_index = candidate
+                    winner_T = loop_options[winner_index]
+
+                    if winner_T in runtimes:
+                        winner_R = runtimes[winner_T]
+                    else:
+                        with tempfile.NamedTemporaryFile() as json_tmp:
+                            conf[name] = winner_T
+                            bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
+
+                            num_executed += 1
+                            guesses_tried.append(winner_T)
+                            call_program(bench_cmd)
+                            json_data = json.load(json_tmp)
+                            results = json_data[program]['datasets']
+
+                            total_time = 0
+                            for dataset in results:
+                                runtime = int(np.mean(results[dataset]['runtimes']))
+                                total_time +=  runtime
+
+                            winner_R = total_time
+
+                    print("[{}s] Chose {} giving {} with runtimes {} using {} runs for threshold {}".format(int(time.time() - start), winner_index, winner_T, winner_R, len(guesses_tried), name))
+                    conf[name] = winner_T
+                    best_threshold_value = winner_T
+
+                elif len(loop_options) > 5:
+                    # Binary-Search Choice
+                    numBin = 0
                     while len(loop_options[first:last]) != 0:
+                        numBin += 1
                         if first_iteration:
                             midpoint = 0
                         else:
                             midpoint = (first + last) // 2
 
-                        name, val = loop_options[midpoint]
+                        val = loop_options[midpoint]
                         print("[{}s] Trying value {} for threshold {}".format( int(time.time() - start), val, name ))
 
                         # Update the specific conflict-threshold's value to this possible option.
@@ -1119,10 +1231,7 @@ for program in programs:
 
                         # Run the benchmark.
                         with tempfile.NamedTemporaryFile() as json_tmp:
-                            if i == 0:
-                                bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
-                            else:
-                                bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
+                            bench_cmd = futhark_bench_cmd(conf, json_tmp, None, 16)
 
                             num_executed += 1
                             call_program(bench_cmd)
@@ -1155,7 +1264,7 @@ for program in programs:
 
                         # If first iteration of binary search, set stuff.
                         if first_iteration:
-                            print("Current best {} is {} with {}".format(name, val, total_time))
+                            print("[{}s] Current best {} is {} with {}".format(int(time.time() - start), name, val, total_time))
                             best_threshold_time = total_time
                             best_threshold_value = val
                             first_iteration = False
@@ -1164,20 +1273,31 @@ for program in programs:
 
                         # Update "best" current threshold value
                         if total_time < best_threshold_time:
-                            print("Current best {} is {} with {}".format(name, val, total_time))
+                            print("[{}s] Current best {} is {} with {}".format(int(time.time() - start), name, val, total_time))
                             best_threshold_time = total_time
                             best_threshold_value = val
                             first = midpoint + 1
                         else:
                             last = midpoint - 1
+                    print("BINARY SEARCH USED {} EXECUTIONS FOR T: {}".format(numBin, name))
                 else:
+                    # Exhaustive-Search Choice
                     # Just try every version, since there are so few.
 
-                    #plot_list_x = []
-                    #plot_list_y = []
+                    plot_list_x = []
+                    plot_list_y = []
 
-                    for k, current_option in enumerate(options[optionPosition]):
-                        name, val = current_option
+                    for k, current_option in enumerate(options[name]):
+
+                        # Due to sloppy coding, current_option can either be a tuple (name, val) or it can be just val....
+                        # So we try one, and if the unpacking of the tuple fails, then it's the other. 
+                        # This is purely sloppy coding, sorry.
+                        try:
+                            namehere, val = current_option
+                            name = namehere
+                        except:
+                            val = current_option
+
                         print("[{}s] Trying value {} for threshold {}".format( int(time.time() - start), val, name ))
 
                         # Update the specific conflict-threshold's value to this possible option.
@@ -1225,16 +1345,18 @@ for program in programs:
                             best_threshold_time = total_time
                             best_threshold_value = val
 
-                        #plot_list_x.append(val)
-                        #plot_list_y.append(runtime)
+                        plot_list_x.append(val)
+                        plot_list_y.append(total_time)
 
                     # Printing for a plot thingy, not used.
+                    #print("")
+                    #print(name)
                     #print(plot_list_x)
                     #print(plot_list_y)
+                    #print("")
 
-                print("Chose the following threshold for {} : {}".format(name, best_threshold_value))
+                print("[{}s] Chose the following threshold for {} : {}".format(int(time.time() - start), name, best_threshold_value))
                 final_conf[name] = best_threshold_value
-
 
     best_tile = 16
 
@@ -1277,22 +1399,12 @@ for program in programs:
                 best_tile = tile
                 best_tile_time = total_time
 
-
-
-    print("Best Tile: {}".format(best_tile))
-
-
-    print("Performed {} benchmarks".format(num_executed))
-
-    # Report the results.
-    print("FINAL BENCH COMMAND:")
-    if best_tile == None:
-        print(futhark_bench_cmd(final_conf, None, None, None))
-    else:
-        print(futhark_bench_cmd(final_conf, None, None, best_tile))
-
+    # Report the results
     script_results.append( (time.time() - start, futhark_bench_cmd(final_conf, None, None, best_tile), num_executed) )
 
+
+
+# PRINT ALL RESULTS!
 print("")
 print_str = "# FINISHED RUNNING {} BENCHMARKS #".format(len(programs))
 print("#" + '=' * (len(print_str) - 2) + "#")
@@ -1304,12 +1416,13 @@ for i, program in enumerate(programs):
     print("")
     print("Final command for target program {}, took {}s, with {} executions".format(program[:-4], int(time_taken), num_executed))
     print(bench_cmd.replace(' --exclude-case=notune ', ' '))
-
+    
 print("Saving all final benchmarks in JSON files for results.")
 for i, program in enumerate(programs):
     print("Saving results of {}".format(program))
     (time_taken, bench_cmd, num_executed) = script_results[i]
-    call_program(bench_cmd.replace(' --exclude-case=notune ', ' ') + ' --json=simple-{}.json'.format(program[:-4]))
+    call_program(bench_cmd.replace(' --exclude-case=notune ', ' ') + ' --json=binary-{}.json'.format(program[:-4]))
+
 
 
 """
@@ -1317,283 +1430,28 @@ for i, program in enumerate(programs):
 # NOTES SECTION #
 #===============#
 
-Final command for target program srad, took 91s (Perfect)
-futhark bench --skip-compilation srad.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_outer_par_0=1026 --pass-option --size=main.suff_intra_par_1=1024 --pass-option --size=main.suff_intra_par_5=1026 --pass-option --size=main.suff_outer_par_4=1026
-
-Final command for target program LocVolCalib, took 93s (Perfect)
-futhark bench --skip-compilation LocVolCalib.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_intra_par_7=385 --pass-option --size=main.suff_intra_par_5=385 --pass-option --size=main.suff_intra_par_17=385 --pass-option --size=main.suff_intra_par_9=256 --pass-option --size=main.suff_outer_par_6=385 --pass-option --size=main.suff_outer_par_4=385 --pass-option --size=main.suff_outer_par_8=32768 --pass-option --size=main.suff_outer_par_16=4096
-
-Final command for target program bfast-ours, took 1139s (Near-Perfect?)
-futhark bench --skip-compilation bfast-ours.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_outer_par_38=111557 --pass-option --size=main.suff_outer_par_29=167335 --pass-option --size=main.suff_outer_par_23=131072 --pass-option --size=main.suff_outer_par_33=111557 --pass-option --size=main.suff_outer_par_21=32768 --pass-option --size=main.suff_outer_par_35=16384 --pass-option --size=main.suff_outer_par_27=8388608 --pass-option --size=main.suff_outer_par_25=167335 --pass-option --size=main.suff_outer_par_10=1048576 --pass-option --size=main.suff_outer_par_17=111557 --pass-option --size=main.suff_outer_par_19=131072 --pass-option --size=main.suff_intra_par_7=13 --pass-option --size=main.suff_intra_par_11=769 --pass-option --size=main.suff_intra_par_13=128 --pass-option --size=main.suff_intra_par_9=13 --pass-option --size=main.suff_intra_par_36=76 --pass-option --size=main.suff_intra_par_24=13 --pass-option --size=main.suff_intra_par_34=113 --pass-option --size=main.suff_intra_par_26=256 --pass-option --size=main.suff_intra_par_20=769 --pass-option --size=main.suff_intra_par_30=235 --pass-option --size=main.suff_intra_par_22=8 --pass-option --size=main.suff_intra_par_18=13 --pass-option --size=main.suff_outer_par_8=1338673 --pass-option --size=main.suff_intra_par_39=122 --pass-option --size=main.suff_intra_par_28=13 --pass-option --size=main.suff_outer_par_6=167335
-
-Final command for target program variant, took 203s (Perfect)
-futhark bench --skip-compilation variant.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_outer_par_3=1024 --pass-option --size=main.suff_intra_par_4=1048577 --pass-option --size=main.suff_outer_par_0=1025 --pass-option --size=main.suff_intra_par_1=1025
-
-Final command for target program lud-clean, took 492s (Perfect)
-futhark bench --skip-compilation lud-clean.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_intra_par_16=24 --pass-option --size=main.suff_outer_par_13=128 --pass-option --size=main.suff_outer_par_17=258065 --pass-option --size=main.suff_intra_par_20=24 --pass-option --size=main.suff_outer_par_15=16130 --pass-option --size=main.suff_intra_par_18=24 --pass-option --size=main.suff_intra_par_14=9 --pass-option --size=main.suff_outer_par_19=9216
-
-
-#================#
-# FABIAN MEETING #
-#================#
-Look into:
- CMA-ES (BlackBox optimization)
- Meta-Optimization
- Active Learning (Learning with a Budget)
 
 #===========#
 # TILE SIZE #
 #===========#
 
-Ask COSMIN if it is possible to have the compiler pinpoint which "branch" uses Tile Sizes?
-
-
-#======================#
-# VARIANT-SIZE TESTING #
-#======================#
-Final command for target program variant, took 185s
-futhark bench --skip-compilation --exclude-case=notune variant.fut --pass-option --default-tile-size=64 --pass-option --size=main.suff_outer_par_3=1024 --pass-option --size=main.suff_intra_par_4=4096 --pass-option --size=main.suff_outer_par_0=1025 --pass-option --size=main.suff_intra_par_1=1025
-
-
-#=====#
-# LUD #
-#=====#
-Final command for target program lud-clean, took 628s
-futhark bench --skip-compilation --exclude-case=notune lud-clean.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_intra_par_16=24 --pass-option --size=main.suff_outer_par_13=128 --pass-option --size=main.suff_outer_par_17=258065 --pass-option --size=main.suff_intra_par_20=24 --pass-option --size=main.suff_outer_par_15=16130 --pass-option --size=main.suff_intra_par_18=24 --pass-option --size=main.suff_intra_par_14=9 --pass-option --size=main.suff_outer_par_19=9216
-
-[{False:
-    [{False:
-        [{False:
-            [{False:
-                [{False:
-                    [{False:
-                        [{False:
-                            [{False: [{'name': 'end', 'id': 15}],
-                              True: [{'name': 'end', 'id': 14}],
-                              'name': 'main.suff_intra_par_20'}],
-                         True: [{'name': 'end', 'id': 12}],
-                         'name': 'main.suff_outer_par_19'}],
-                     True: [{'name': 'end', 'id': 10}],
-                     'name': 'main.suff_intra_par_18'}],
-                 True: [{'name': 'end', 'id': 8}],
-                 'name': 'main.suff_outer_par_17'}],
-             True: [{'name': 'end', 'id': 6}],
-             'name': 'main.suff_intra_par_16'}],
-          True: [{'name': 'end', 'id': 4}],
-          'name': 'main.suff_outer_par_15'}],
-      True: [{'name': 'end', 'id': 2}],
-      'name': 'main.suff_intra_par_14'}],
-  True: [{'name': 'end', 'id': 0}],
-  'name': 'main.suff_outer_par_13'}]
-
-LUD-CLEAN --print-sizes result:
-main.suff_outer_par_13 (threshold ())
-main.suff_intra_par_14 (threshold (!main.suff_outer_par_13))
-main.suff_outer_par_15 (threshold (!main.suff_outer_par_13 !main.suff_intra_par_14))
-main.suff_intra_par_16 (threshold (!main.suff_outer_par_15 !main.suff_outer_par_13 !main.suff_intra_par_14))
-main.suff_outer_par_17 (threshold (!main.suff_outer_par_15 !main.suff_intra_par_16 !main.suff_outer_par_13 !main.suff_intra_par_14))
-main.suff_intra_par_18 (threshold (!main.suff_outer_par_17 !main.suff_outer_par_15 !main.suff_intra_par_16 !main.suff_outer_par_13 !main.suff_intra_par_14))
-main.suff_outer_par_19 (threshold (!main.suff_outer_par_17 !main.suff_intra_par_18 !main.suff_outer_par_15 !main.suff_intra_par_16 !main.suff_outer_par_13 !main.suff_intra_par_14))
-main.suff_intra_par_20 (threshold (!main.suff_outer_par_19 !main.suff_outer_par_17 !main.suff_intra_par_18 !main.suff_outer_par_15 !main.suff_intra_par_16 !main.suff_outer_par_13 !main.suff_intra_par_14))
-
 #======#
 # SRAD #
 #======#
-Final command for target program srad, took 164s
-futhark bench --skip-compilation --exclude-case=notune srad.fut --pass-option --default-tile-size=1024 --pass-option --size=main.suff_outer_par_0=1026 --pass-option --size=main.suff_intra_par_1=1026 --pass-option --size=main.suff_intra_par_5=1025 --pass-option --size=main.suff_outer_par_4=1026
-
 
 #=============#
 # LocVolCalib #
 #=============#
-Final command for target program LocVolCalib, took 134s
-futhark bench --skip-compilation --exclude-case=notune LocVolCalib.fut --pass-option --default-tile-size=8 --pass-option --size=main.suff_intra_par_7=385 --pass-option --size=main.suff_intra_par_5=385 --pass-option --size=main.suff_intra_par_17=385 --pass-option --size=main.suff_intra_par_9=256 --pass-option --size=main.suff_outer_par_6=385 --pass-option --size=main.suff_outer_par_4=385 --pass-option --size=main.suff_outer_par_8=32768 --pass-option --size=main.suff_outer_par_16=4096
-
-TRAIN-SMALL:
-16   -- 128  -- OUTER -- no restrictions
-32   -- 32   -- NUM_X -- 2^x, where x \in {5, ..., 9}
-256  -- 32   -- NUM_Y -- 2^x, where x \in {5, ..., 9}
-4    -- NUM_T -- no restrictions
-0.03 --s0
-5.0 -- t
-0.2 -- alpha
-0.6 -- nu
-0.5 -- beta
-
-
-TRAIN-MEDIUM:
-128     -- OUTER -- no restrictions
-256     -- NUM_X -- 2^x, where x \in {5, ..., 9}
-32      -- NUM_Y -- 2^x, where x \in {5, ..., 9}
-4       -- NUM_T -- no restrictions
-0.03 --s0
-5.0 -- t
-0.2 -- alpha
-0.6 -- nu
-0.5 -- beta
-
-
-TRAIN-LARGE:
-256     -- OUTER -- no restrictions
-256     -- NUM_X -- 2^x, where x \in {5, ..., 9}
-256     -- NUM_Y -- 2^x, where x \in {5, ..., 9}
-4       -- NUM_T -- no restrictions
-0.03 --s0
-5.0 -- t
-0.2 -- alpha
-0.6 -- nu
-0.5 -- beta
-
-Problem: With the current train-set I can accurately guess test-set as well...
-
 
 #=======#
 # BFAST #
 #=======#
 
-THIS IS COSMINS OWN VERSION!?!?!
-FUTHARK_INCREMENTAL_FLATTENING=1 futhark bench --backend opencl --pass-option --default-tile-size=16 --pass-option --size=main.suff_outer_par_6=50000000 --pass-option --size=main.suff_intra_par_7=2048 --pass-option --size=main.suff_outer_par_8=50000000 --pass-option --size=main.suff_intra_par_9=2048 --pass-option --size=main.suff_outer_par_10=1  --pass-option --size=main.suff_intra_par_11=2048 --pass-option --size=main.suff_intra_par_13=1 --pass-option --size=main.suff_outer_par_17=50000000  --pass-option --size=main.suff_intra_par_18=2048  --pass-option --size=main.suff_outer_par_19=1 --pass-option --size=main.suff_intra_par_20=2048  --pass-option --size=main.suff_outer_par_21=50000000 --pass-option --size=main.suff_intra_par_22=2048  --pass-option --size=main.suff_outer_par_23=50000000 --pass-option --size=main.suff_intra_par_24=2048  --pass-option --size=main.suff_outer_par_25=50000000 --pass-option --size=main.suff_intra_par_26=2048  --pass-option --size=main.suff_outer_par_27=1 --pass-option --size=main.suff_intra_par_28=2048  --pass-option --size=main.suff_outer_par_29=50000000 --pass-option --size=main.suff_intra_par_30=1  --pass-option --size=main.suff_outer_par_33=50000000 --pass-option --size=main.suff_intra_par_34=1  --pass-option --size=main.suff_outer_par_35=50000000 --pass-option --size=main.suff_intra_par_36=2048 --pass-option --size=main.suff_outer_par_38=50000000 --pass-option --size=main.suff_intra_par_39=1 bfast.fut
+#=====#
+# LUD #
+#=====#
 
-Final command for target program bfast-ours, took 1406s
-futhark bench --skip-compilation --exclude-case=notune bfast-ours.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_outer_par_38=16384 --pass-option --size=main.suff_outer_par_29=167335 --pass-option --size=main.suff_outer_par_23=262144 --pass-option --size=main.suff_outer_par_33=16384 --pass-option --size=main.suff_outer_par_21=16384 --pass-option --size=main.suff_outer_par_35=16384 --pass-option --size=main.suff_outer_par_27=8388608 --pass-option --size=main.suff_outer_par_25=16384 --pass-option --size=main.suff_outer_par_10=1048576 --pass-option --size=main.suff_outer_par_17=111557 --pass-option --size=main.suff_outer_par_19=131072 --pass-option --size=main.suff_intra_par_7=13 --pass-option --size=main.suff_intra_par_11=769 --pass-option --size=main.suff_intra_par_13=128 --pass-option --size=main.suff_intra_par_9=13 --pass-option --size=main.suff_intra_par_36=23 --pass-option --size=main.suff_intra_par_24=13 --pass-option --size=main.suff_intra_par_34=128 --pass-option --size=main.suff_intra_par_26=256 --pass-option --size=main.suff_intra_par_20=769 --pass-option --size=main.suff_intra_par_30=235 --pass-option --size=main.suff_intra_par_22=8 --pass-option --size=main.suff_intra_par_18=13 --pass-option --size=main.suff_outer_par_8=1338673 --pass-option --size=main.suff_intra_par_39=256 --pass-option --size=main.suff_intra_par_28=13 --pass-option --size=main.suff_outer_par_6=167335
-
-
-
-FIX ALL THE THINGS!?!?!?!?  (Probably something with merging?)
-Look at the datasets for LocVolCalib, vary NUM_[] and OUTER to find MAXIMUM / Minimum versions, and use that as TRAIN to predict TEST better!
-Make a github, instead of using goddamn Dropbox for everything. . .
-Make an example of a FUTHARK code program in which a loop changes the degree of parallelism. (???) See photos (Think about varying Tile-Size / Variant Size)
-
-
-
-BFAST BRANCHES:
-
-So, I have 9 branches, each independent from the rest.
-
-Maintain a "Baseline-version"
-Loop over number of branches?
-
-
-[
-{False: [{'name': 'end', 'id': 1}],
- True: [{'name': 'end', 'id': 0}],
- 'name': 'main.suff_intra_par_13'},
-
-{False:
-    [{False:
-        [{False:
-            [{False: [{'name': 'end', 'id': 43}],
-              True: [{'name': 'end', 'id': 42}],
-              'name': 'main.suff_intra_par_20'}],
-          True: [{'name': 'end', 'id': 34}],
-          'name': 'main.suff_outer_par_19'}],
-      True: [{'name': 'end', 'id': 18}],
-      'name': 'main.suff_intra_par_18'}],
- True: [{'name': 'end', 'id': 2}],
- 'name': 'main.suff_outer_par_17'},
-
-{False:
-    [{False:
-        [{False:
-            [{False: [{'name': 'end', 'id': 45}],
-              True: [{'name': 'end', 'id': 44}],
-              'name': 'main.suff_intra_par_24'}],
-          True: [{'name': 'end', 'id': 36}],
-          'name': 'main.suff_outer_par_23'}],
-      True: [{'name': 'end', 'id': 20}],
-      'name': 'main.suff_intra_par_22'}],
- True: [{'name': 'end', 'id': 4}],
- 'name': 'main.suff_outer_par_21'},
-
-{False:
-    [{False:
-        [{False:
-            [{False: [{'name': 'end', 'id': 47}],
-              True: [{'name': 'end', 'id': 46}],
-              'name': 'main.suff_intra_par_28'}],
-          True: [{'name': 'end', 'id': 38}],
-          'name': 'main.suff_outer_par_27'}],
-      True: [{'name': 'end', 'id': 22}],
-      'name': 'main.suff_intra_par_26'}],
- True: [{'name': 'end', 'id': 6}],
- 'name': 'main.suff_outer_par_25'},
-
-{False:
-    [{False: [{'name': 'end', 'id': 25}],
-      True: [{'name': 'end', 'id': 24}],
-      'name': 'main.suff_intra_par_30'}],
- True: [{'name': 'end', 'id': 8}],
- 'name': 'main.suff_outer_par_29'},
-
-{False:
-    [{False: [{'name': 'end', 'id': 27}],
-      True: [{'name': 'end', 'id': 26}],
-      'name': 'main.suff_intra_par_34'}],
- True: [{'name': 'end', 'id': 10}],
- 'name': 'main.suff_outer_par_33'},
-
-{False:
-    [{False: [{'name': 'end', 'id': 29}],
-      True: [{'name': 'end', 'id': 28}],
-      'name': 'main.suff_intra_par_36'}],
- True: [{'name': 'end', 'id': 12}],
- 'name': 'main.suff_outer_par_35'},
-
-{False:
-    [{False: [{'name': 'end', 'id': 31}],
-      True: [{'name': 'end', 'id': 30}],
-      'name': 'main.suff_intra_par_39'}],
- True: [{'name': 'end', 'id': 14}],
- 'name': 'main.suff_outer_par_38'},
-
-{False:
-    [{False:
-        [{False:
-            [{False:
-                [{False:
-                    [{False: [{'name': 'end', 'id': 53}],
-                      True: [{'name': 'end', 'id': 52}],
-                      'name': 'main.suff_intra_par_11'}],
-                  True: [{'name': 'end', 'id': 50}],
-                  'name': 'main.suff_outer_par_10'}],
-              True: [{'name': 'end', 'id': 48}],
-              'name': 'main.suff_intra_par_9'}],
-          True: [{'name': 'end', 'id': 40}],
-          'name': 'main.suff_outer_par_8'}],
-      True: [{'name': 'end', 'id': 32}],
-      'name': 'main.suff_intra_par_7'}],
- True: [{'name': 'end', 'id': 16}],
- 'name': 'main.suff_outer_par_6'}]
-
-
-Final command for target program srad, took 175s, with 11 executions
-futhark bench --skip-compilation srad.fut --pass-option --default-tile-size=64 --pass-option --size=main.suff_outer_par_0=1026 --pass-option --size=main.suff_intra_par_1=1025 --pass-option --size=main.suff_intra_par_5=1026 --pass-option --size=main.suff_outer_par_4=1026
-
-Final command for target program LocVolCalib, took 184s, with 17 executions
-futhark bench --skip-compilation LocVolCalib.fut --pass-option --default-tile-size=4 --pass-option --size=main.suff_intra_par_7=385 --pass-option --size=main.suff_intra_par_5=385 --pass-option --size=main.suff_intra_par_17=384 --pass-option --size=main.suff_intra_par_9=256 --pass-option --size=main.suff_outer_par_6=385 --pass-option --size=main.suff_outer_par_4=385 --pass-option --size=main.suff_outer_par_8=32768 --pass-option --size=main.suff_outer_par_16=4096
-
-Final command for target program bfast-ours, took 1223s, with 44 executions
-futhark bench --skip-compilation bfast-ours.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_outer_par_38=65537 --pass-option --size=main.suff_outer_par_29=167335 --pass-option --size=main.suff_outer_par_23=131072 --pass-option --size=main.suff_outer_par_33=16384 --pass-option --size=main.suff_outer_par_21=32768 --pass-option --size=main.suff_outer_par_35=67969 --pass-option --size=main.suff_outer_par_27=8388608 --pass-option --size=main.suff_outer_par_25=167335 --pass-option --size=main.suff_outer_par_10=1048576 --pass-option --size=main.suff_outer_par_17=111557 --pass-option --size=main.suff_outer_par_19=131072 --pass-option --size=main.suff_intra_par_7=13 --pass-option --size=main.suff_intra_par_11=768 --pass-option --size=main.suff_intra_par_13=128 --pass-option --size=main.suff_intra_par_9=13 --pass-option --size=main.suff_intra_par_36=21 --pass-option --size=main.suff_intra_par_24=12 --pass-option --size=main.suff_intra_par_34=113 --pass-option --size=main.suff_intra_par_26=512 --pass-option --size=main.suff_intra_par_20=768 --pass-option --size=main.suff_intra_par_30=235 --pass-option --size=main.suff_intra_par_22=8 --pass-option --size=main.suff_intra_par_18=12 --pass-option --size=main.suff_outer_par_8=1338673 --pass-option --size=main.suff_intra_par_39=128 --pass-option --size=main.suff_intra_par_28=12 --pass-option --size=main.suff_outer_par_6=167335
-
-Final command for target program variant, took 249s, with 22 executions
-futhark bench --skip-compilation variant.fut --pass-option --default-tile-size=32 --pass-option --size=main.suff_outer_par_3=1024 --pass-option --size=main.suff_intra_par_4=4096 --pass-option --size=main.suff_outer_par_0=1025 --pass-option --size=main.suff_intra_par_1=1025
-
-Final command for target program lud-clean, took 553s, with 44 executions
-futhark bench --skip-compilation lud-clean.fut --pass-option --default-tile-size=16 --pass-option --size=main.suff_intra_par_16=24 --pass-option --size=main.suff_outer_par_13=128 --pass-option --size=main.suff_outer_par_17=254016 --pass-option --size=main.suff_intra_par_20=24 --pass-option --size=main.suff_outer_par_15=16130 --pass-option --size=main.suff_intra_par_18=24 --pass-option --size=main.suff_intra_par_14=15 --pass-option --size=main.suff_outer_par_19=1024
-
-
-
-
-
-
-PLAN OF ATTACK:
-Main force distraction for random tunnel-digging squad.
-Siege-formation for all the forces, with Druids focusing on Earthbind, Rangers given arrows of Dragon Slaying
-Metal Dragons assisting. Arcane Brotherhood skaffer et par rune-bombs til partyet.
-Harpers: Find information on where Severin is + map to get there.
-
-Hakak har underskrevet kontrakt, om at faa Elsandoral tilbage i kampen.
-
-
-
+#======================#
+# VARIANT-SIZE TESTING #
+#======================#
  """
