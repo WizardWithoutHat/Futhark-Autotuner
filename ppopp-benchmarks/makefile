@@ -2,7 +2,7 @@ FLAGS=FUTHARK_INCREMENTAL_FLATTENING=1
 PREFIX=gtx
 
 tune_exhaustive: ../exhaustive-auto.py backprop.fut lavaMD.fut LocVolCalib.fut nn.fut nw.fut pathfinder.fut srad.fut heston32.fut OptionPricing.fut bfast.fut
-	$(FLAGS) python ../exhaustive-auto.py backprop.fut lavaMD.fut LocVolCalib.fut nn.fut nw.fut pathfinder.fut srad.fut heston32.fut OptionPricing.fut
+	$(FLAGS) python ../exhaustive-auto.py backprop.fut lavaMD.fut LocVolCalib.fut nn.fut nw.fut pathfinder.fut srad.fut heston32.fut OptionPricing.fut bfast.fut
 	mv simple-backprop.json $(PREFIX)-simple-backprop.json
 	mv simple-lavaMD.json $(PREFIX)-simple-lavaMD.json
 	mv simple-LocVolCalib.json $(PREFIX)-simple-LocVolCalib.json
