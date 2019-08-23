@@ -10,6 +10,7 @@ tune_exhaustive: ../exhaustive-auto.py backprop.fut lavaMD.fut LocVolCalib.fut n
 	mv simple-nw.json $(PREFIX)-simple-nw.json
 	mv simple-pathfinder.json $(PREFIX)-simple-pathfinder.json
 	mv simple-srad.json $(PREFIX)-simple-srad.json
+	mv simple-heston32.json $(PREFIX)-simple-heston32.json
 	mv simple-OptionPricing.json $(PREFIX)-simple-OptionPricing.json
 	mv simple-bfast.json $(PREFIX)-simple-bfast.json
 
