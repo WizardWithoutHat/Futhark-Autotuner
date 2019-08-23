@@ -2,6 +2,10 @@
 -- https://github.com/kkushagra/rodinia/blob/master/openmp/nw
 --
 -- ==
+-- tune compiled input @ nw-data/tiny.in.gz
+-- output @ nw-data/tiny.out.gz
+-- tune compiled input @ nw-data/small.in.gz
+-- output @ nw-data/small.out.gz
 -- tune compiled input @ nw-data/train-D.in.gz
 --
 -- notune compiled input @ nw-data/D1.in.gz
@@ -100,6 +104,8 @@ let updateBlocks [q][lensq] (len: i32) (blk: i32)
         ) (iota (blk*B*B)) )
   in  scatter inputsets inds vals
 
+
+--let main [lensq] (penalty : int) (inputsets : *[lensq]int) (reference : *[lensq]int) = (penalty, lensq)
 
 -- `len-1` should be a multiple of 16 
 let main [lensq] (penalty : int) 
