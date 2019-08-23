@@ -1321,7 +1321,7 @@ print("Saving all final benchmarks in JSON files for results.")
 for i, program in enumerate(programs):
     print("Saving results of {}".format(program))
     (time_taken, bench_cmd, num_executed) = script_results[i]
-    call_program(bench_cmd.replace(' --exclude-case=notune ', ' ') + ' --json=instr-{}.json'.format(program[:-4]))
+    call_program(bench_cmd.replace(' --exclude-case=notune ', ' --exclude-case=tune ') + ' --json=instr-{}.json'.format(program[:-4]))
 
 
 

@@ -738,7 +738,7 @@ print("Saving all final benchmarks in JSON files for results.")
 for i, program in enumerate(programs):
     print("Saving results of {}".format(program))
     bench_cmd = results[i]
-    call_program(bench_cmd.replace(' --exclude-case=notune ', ' ') + ' --json=cmaindex-{}.json'.format(program[:-4]))
+    call_program(bench_cmd.replace(' --exclude-case=notune ', ' --exclude-case=tune ') + ' --json=cmaindex-{}.json'.format(program[:-4]))
 
 
 
