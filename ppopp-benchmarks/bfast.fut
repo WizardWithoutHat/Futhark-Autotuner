@@ -6,8 +6,8 @@
 -- tune compiled input @ bfast-data/D4T.in.gz
 -- tune compiled input @ bfast-data/D5T.in.gz
 -- tune compiled input @ bfast-data/D6T.in.gz
--- tune compiled input @ bfast-data/D1.in.gz
--- tune compiled input @ bfast-data/D2.in.gz
+-- notune compiled input @ bfast-data/D1.in.gz
+-- notune compiled input @ bfast-data/D2.in.gz
 
 
 -- output @ bfast-data/peru.out.gz
