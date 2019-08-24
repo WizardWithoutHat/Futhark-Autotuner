@@ -1,8 +1,13 @@
 -- LocVolCalib
 -- ==
--- compiled input @ LocVolCalib-data/train-small.in
--- compiled input @ LocVolCalib-data/train-medium.in
--- compiled input @ LocVolCalib-data/train-large.in
+-- tune input @ LocVolCalib-data/train-small.in
+-- output @ LocVolCalib-data/train-small.out
+--
+-- tune input @ LocVolCalib-data/train-medium.in
+-- output @ LocVolCalib-data/train-medium.out
+--
+-- tune input @ LocVolCalib-data/train-large.in
+-- output @ LocVolCalib-data/train-large.out
 --
 -- notune compiled input @ LocVolCalib-data/small.in
 -- output @ LocVolCalib-data/small.out
@@ -13,7 +18,7 @@
 -- notune compiled input @ LocVolCalib-data/large.in
 -- output @ LocVolCalib-data/large.out
 
-let initGrid(s0: f32, alpha: f32, nu: f32, t: f32, numX: i32, numY: i32, numT: i32)
+let initGrid (s0: f32) (alpha: f32) (nu: f32) (t: f32) (numX: i32) (numY: i32) (numT: i32)
   : (i32, i32, [numX]f32, [numY]f32, [numT]f32) =
   let logAlpha = f32.log alpha
   let myTimeline = map (\i -> t * r32 i / (r32 numT - 1.0)) (iota numT)
@@ -41,8 +46,8 @@ let initOperator [n] (x: [n]f32): ([n][3]f32,[n][3]f32) =
   let dxl      = x[n-1] - x[n-2]
   let dx_high  = [[-1.0 / dxl, 1.0 / dxl, 0.0 ]]
   let dxx_high = [[0.0, 0.0, 0.0 ]]
-  let dx     = dx_low ++ dx_mid ++ dx_high
-  let dxx    = dxx_low ++ dxx_mid ++ dxx_high
+  let dx     = dx_low ++ dx_mid ++ dx_high : [n][3]f32
+  let dxx    = dxx_low ++ dxx_mid ++ dxx_high : [n][3]f32
   in  (dx, dxx)
 
 let setPayoff [numX][numY] (strike: f32, myX: [numX]f32, _myY: [numY]f32): *[numY][numX]f32 =
@@ -65,15 +70,14 @@ let updateParams [numX][numY]
 let tridagSeq [n] (a:  [n]f32, b: *[n]f32, c: [n]f32, y: *[n]f32 ): *[n]f32 =
   unsafe
   let (y,b) = loop ((y, b)) for i in 1..<n do
-      let beta = a[i] / b[i-1]
-      let b[i] = b[i] - beta*c[i-1]
-      let y[i] = y[i] - beta*y[i-1]
-      in  (y, b)
-
+              let beta = a[i] / b[i-1]
+              let b[i] = b[i] - beta*c[i-1]
+              let y[i] = y[i] - beta*y[i-1]
+              in  (y, b)
   let y[n-1] = y[n-1]/b[n-1]
   in loop (y) for i in n-2..n-3...0 do
-       let y[i] = (y[i] - c[i]*y[i+1]) / b[i]
-       in  y
+     let y[i] = (y[i] - c[i]*y[i+1]) / b[i]
+     in  y
 
 let tridagPar [n] (a:  [n]f32, b: [n]f32, c: [n]f32, y: [n]f32 ): *[n]f32 =
   unsafe
@@ -145,17 +149,17 @@ let explicitMethod [m][n] (myD:    [m][3]f32,  myDD: [m][3]f32,
                   : *[n][m]f32 =
   -- 0 <= i < m AND 0 <= j < n
   map3 (\mu_row var_row result_row ->
-         map5 (\dx dxx mu var j ->
-                let c1 = if 0 < j
-                         then (mu*dx[0] + 0.5*var*dxx[0]) * unsafe result_row[j-1]
-                         else 0.0
-                let c3 = if j < (m-1)
-                         then (mu*dx[2] + 0.5*var*dxx[2]) * unsafe result_row[j+1]
-                         else 0.0
-                let c2 =      (mu*dx[1] + 0.5*var*dxx[1]) * unsafe result_row[j  ]
-                in  c1 + c2 + c3)
-             myD myDD mu_row var_row (iota m))
-      myMu myVar result
+          map5 (\dx dxx mu var j ->
+                  let c1 = if 0 < j
+                           then (mu*dx[0] + 0.5*var*dxx[0]) * unsafe result_row[j-1]
+                           else 0.0
+                  let c3 = if j < (m-1)
+                           then (mu*dx[2] + 0.5*var*dxx[2]) * unsafe result_row[j+1]
+                           else 0.0
+                  let c2 =      (mu*dx[1] + 0.5*var*dxx[1]) * unsafe result_row[j  ]
+                  in  c1 + c2 + c3)
+               myD myDD mu_row var_row (iota m))
+       myMu myVar result
 
 -- for implicitY: should be called with transpose(u) instead of u
 let implicitMethod [n][m] (myD:  [m][3]f32,  myDD:  [m][3]f32,
@@ -163,13 +167,15 @@ let implicitMethod [n][m] (myD:  [m][3]f32,  myDD:  [m][3]f32,
                            u:   *[n][m]f32,  dtInv: f32)
                   : *[n][m]f32 =
   map3 (\mu_row var_row u_row  ->
-         let (a,b,c) = unzip3 (map4 (\mu var d dd ->
-                                    ( 0.0   - 0.5*(mu*d[0] + 0.5*var*dd[0])
-                                    , dtInv - 0.5*(mu*d[1] + 0.5*var*dd[1])
-                                    , 0.0   - 0.5*(mu*d[2] + 0.5*var*dd[2])))
-                              mu_row var_row myD myDD)
-         in tridagPar( a, b, c, u_row ))
-      myMu myVar u
+          let (a,b,c) = unzip3 (map4 (\mu var d dd ->
+                                        ( 0.0   - 0.5*(mu*d[0] + 0.5*var*dd[0])
+                                        , dtInv - 0.5*(mu*d[1] + 0.5*var*dd[1])
+                                        , 0.0   - 0.5*(mu*d[2] + 0.5*var*dd[2])))
+                                     mu_row var_row myD myDD)
+          in if true
+             then tridagSeq( a, copy b, c, copy u_row )
+             else tridagPar( a, b, c, u_row ))
+       myMu myVar u
 
 let rollback
   [numX][numY]
@@ -177,14 +183,11 @@ let rollback
    myMuX: [numY][numX]f32, myDx: [numX][3]f32, myDxx: [numX][3]f32, myVarX: [numY][numX]f32,
    myMuY: [numX][numY]f32, myDy: [numY][3]f32, myDyy: [numY][3]f32, myVarY: [numX][numY]f32)
   : [numY][numX]f32 =
-
   let dtInv = 1.0/(tnext-tnow)
-
   -- explicitX
   let u = explicitMethod( myDx, myDxx, myMuX, myVarX, myResult )
   let u = map2 (map2 (\u_el res_el  -> dtInv*res_el + 0.5*u_el))
                u myResult
-
   -- explicitY
   let myResultTR = transpose(myResult)
   let v = explicitMethod(myDy, myDyy, myMuY, myVarY, myResultTR)
@@ -192,33 +195,33 @@ let rollback
   -- implicitX
   let u = implicitMethod( myDx, myDxx, myMuX, myVarX, u, dtInv )
   -- implicitY
-  let y = map2 (\u_row v_row: []f32 ->
-                 map2 (\u_el v_el -> dtInv*u_el - 0.5*v_el) u_row v_row)
-              (transpose u) v
-
+  let y = map2 (\u_row v_row ->
+                  map2 (\u_el v_el -> dtInv*u_el - 0.5*v_el) u_row v_row)
+               (transpose u) v
   let myResultTR = implicitMethod( myDy, myDyy, myMuY, myVarY, y, dtInv )
   in transpose myResultTR
 
 let value(numX: i32, numY: i32, numT: i32, s0: f32, strike: f32, t: f32, alpha: f32, nu: f32, beta: f32): f32 =
   let (myXindex, myYindex, myX, myY, myTimeline) =
-    initGrid(s0, alpha, nu, t, numX, numY, numT)
+    initGrid s0 alpha nu t numX numY numT
   let (myDx, myDxx) = initOperator(myX)
   let (myDy, myDyy) = initOperator(myY)
   let myResult = setPayoff(strike, myX, myY)
-  let myTimeline_neighbours = reverse (zip (init myTimeline) (tail myTimeline))
-
+  let numT' = numT - 1
+  let myTimeline_neighbours = reverse (zip (init myTimeline : [numT']f32)
+                                           (tail myTimeline : [numT']f32))
   let myResult = loop (myResult) for (tnow,tnext) in myTimeline_neighbours do
-      let (myMuX, myVarX, myMuY, myVarY) =
-        updateParams(myX, myY, tnow, alpha, beta, nu)
-      let myResult = rollback(tnow, tnext, myResult,
-                              myMuX, myDx, myDxx, myVarX,
-                              myMuY, myDy, myDyy, myVarY)
+                 let (myMuX, myVarX, myMuY, myVarY) =
+                   updateParams(myX, myY, tnow, alpha, beta, nu)
+                 let myResult = rollback(tnow, tnext, myResult,
+                                         myMuX, myDx, myDxx, myVarX,
+                                         myMuY, myDy, myDyy, myVarY)
 
-      in myResult
+                 in myResult
   in myResult[myYindex,myXindex]
 
 let main (outer_loop_count: i32) (numX: i32) (numY: i32) (numT: i32)
          (s0: f32) (t: f32) (alpha: f32) (nu: f32) (beta: f32): []f32 =
   let strikes = map (\i -> 0.001*r32 i) (iota outer_loop_count)
   let res = map (\x -> value(numX, numY, numT, s0, x, t, alpha, nu, beta)) strikes
-  in res
+  in res --(outer_loop_count, numX, numY, numT, s0, t, alpha, nu, beta)

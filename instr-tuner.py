@@ -53,12 +53,13 @@ def extract_thresholds_and_values(program):
     datasets = []
     values = defaultdict(list)
 
+    """
     with tempfile.NamedTemporaryFile() as json_tmp:
         # extract comparison values by running a single run of the benchmark.
         # Saves important info to a temporary JSON file.
         val_cmd = 'futhark bench {} --exclude-case=notune --backend=opencl --skip-compilation --pass-option=-L --runs=1 --json={}'.format(
-            program, json_tmp.name)
-
+            program, json_tmp.name) 
+        
         val_res = call_program(val_cmd)
 
         json_data = json.load(json_tmp, object_pairs_hook=OrderedDict)
@@ -71,6 +72,56 @@ def extract_thresholds_and_values(program):
         for dataset in datasets:
             thresholds[dataset] = defaultdict(list)
 
+            try:
+                res = datasets[dataset]['stderr']
+            except:
+                continue
+             
+            for line in datasets[dataset]['stderr'].splitlines():
+                match = val_re.search(line)
+                if match:
+                    param, value = match.group(1), int(match.group(2))
+                    # Add comparison; note there might be several per parameter.
+                    if value not in thresholds[dataset][param]:
+                        thresholds[dataset][param].append(value)
+
+            # if a param has not been used in a comparison,
+            # and thus not added, add it now
+            for p in all_params:
+                if not p in thresholds[dataset]:
+                    thresholds[dataset][p] = []
+                else:
+                    params = sorted(thresholds[dataset][p])
+                    thresholds[dataset][p] = params
+
+        # we need a list of datasets later, so save just the names
+        datasets = datasets.keys()"""
+
+    with tempfile.NamedTemporaryFile() as json_tmp:
+        # extract comparison values by running a single run of the benchmark.
+        # Saves important info to a temporary JSON file.
+        val_cmd = 'futhark bench {} --exclude-case=notune --backend=opencl --skip-compilation --pass-option=-L --runs=1 --json={}'.format(
+            program, json_tmp.name) 
+            
+        for thresholdName in all_params:
+            val_cmd += ' --pass-option --size={}={}'.format(thresholdName, 5000000000000)
+        
+        val_res = call_program(val_cmd)
+
+        json_data = json.load(json_tmp, object_pairs_hook=OrderedDict)
+
+        # Datasets here contains all the runtimes for each dataset.
+        datasets = json_data[program]['datasets']
+
+        # search for parameters and values for each dataset
+        val_re = re.compile('Compared ([^ ]+) <= (-?\d+)')
+        for dataset in datasets:
+            thresholds[dataset] = defaultdict(list)
+            try:
+                res = datasets[dataset]['stderr']
+            except:
+                continue
+             
             for line in datasets[dataset]['stderr'].splitlines():
                 match = val_re.search(line)
                 if match:
@@ -91,7 +142,6 @@ def extract_thresholds_and_values(program):
 
         # we need a list of datasets later, so save just the names
         datasets = datasets.keys()
-
 
     # Make a simpler list of all the comparisons for each threshold.
     t = defaultdict(list)
@@ -480,11 +530,14 @@ for program in programs:
     num_executed = 0
 
     # Compile the target program.
-    compile_cmd = 'futhark opencl {}'.format(program)
-    print('Compiling {}... '.format(program), end='')
-    sys.stdout.flush()
-    compile_res = call_program(compile_cmd)
-    print('Done.')
+    if program == "bfast.fut":
+	print("SKIPPING COMPILATION DUE TO BEING BFAST! Has to be compiled with older futhark version, sorry...")
+    else: 
+	compile_cmd = 'futhark opencl {}'.format(program)
+    	print('Compiling {}... '.format(program), end='')
+    	sys.stdout.flush()
+    	compile_res = call_program(compile_cmd)
+    	print('Done.')
 
     # Run the above function to find:
     # Names of all datasets and thresholds.

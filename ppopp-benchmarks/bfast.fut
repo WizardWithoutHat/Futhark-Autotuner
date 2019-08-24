@@ -6,9 +6,12 @@
 -- tune compiled input @ bfast-data/D4T.in.gz
 -- tune compiled input @ bfast-data/D5T.in.gz
 -- tune compiled input @ bfast-data/D6T.in.gz
--- notune compiled input @ bfast-data/D1.in.gz
+-- tune compiled input @ bfast-data/D1.in.gz
+-- tune compiled input @ bfast-data/D2.in.gz
+
+
 -- output @ bfast-data/peru.out.gz
--- notune compiled input @ bfast-data/D2.in.gz
+-- tune compiled input @ bfast-data/D2.in.gz
 -- output @ bfast-data/sahara.out.gz
 
 let logplus (x: f32) : f32 =
