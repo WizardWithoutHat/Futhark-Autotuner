@@ -1,5 +1,5 @@
 FLAGS=FUTHARK_INCREMENTAL_FLATTENING=1
-PREFIX=gtx
+PREFIX=rtx
 
 compile: backprop.fut lavaMD.fut LocVolCalib.fut nn.fut nw.fut pathfinder.fut srad.fut heston32.fut OptionPricing.fut bfast.fut
 	$(FLAGS) ~/futhark-0.10/bin/futhark opencl bfast.fut
@@ -26,15 +26,15 @@ tune_exhaustive: ../exhaustive-auto.py backprop.fut lavaMD.fut LocVolCalib.fut n
 	mv simple-OptionPricing.json $(PREFIX)-simple-OptionPricing.json
 
 moderate_flattening: backprop.fut lavaMD.fut LocVolCalib.fut nn.fut nw.fut pathfinder.fut srad.fut bfast
-	futhark bench --backend=opencl backprop.fut --exclude-case=tune --json=$(PREFIX)-moderate-backprop.json --skip-compilation
-	futhark bench --backend=opencl lavaMD.fut --exclude-case=tune --json=$(PREFIX)-moderate-lavaMD.json --skip-compilation
-	futhark bench --backend=opencl LocVolCalib.fut --exclude-case=tune --json=$(PREFIX)-moderate-LocVolCalib.json --skip-compilation
+	futhark bench --backend=opencl backprop.fut --exclude-case=tune --json=$(PREFIX)-moderate-backprop.json
+	futhark bench --backend=opencl lavaMD.fut --exclude-case=tune --json=$(PREFIX)-moderate-lavaMD.json
+	futhark bench --backend=opencl LocVolCalib.fut --exclude-case=tune --json=$(PREFIX)-moderate-LocVolCalib.json
 	futhark bench --backend=opencl nn.fut --exclude-case=tune --json=$(PREFIX)-moderate-nn.json --skip-compilation
 	futhark bench --backend=opencl nw.fut --exclude-case=tune --json=$(PREFIX)-moderate-nw.json --skip-compilation
-	futhark bench --backend=opencl pathfinder.fut --exclude-case=tune --json=$(PREFIX)-moderate-pathfinder.json --skip-compilation
-	futhark bench --backend=opencl srad.fut --exclude-case=tune --json=$(PREFIX)-moderate-srad.json --skip-compilation
-	futhark bench --backend=opencl heston32.fut --exclude-case=tune --json=$(PREFIX)-moderate-heston32.json --skip-compilation
-	futhark bench --backend=opencl OptionPricing.fut --exclude-case=tune --json=$(PREFIX)-moderate-OptionPricing.json --skip-compilation
+	futhark bench --backend=opencl pathfinder.fut --exclude-case=tune --json=$(PREFIX)-moderate-pathfinder.json
+	futhark bench --backend=opencl srad.fut --exclude-case=tune --json=$(PREFIX)-moderate-srad.json
+	futhark bench --backend=opencl heston32.fut --exclude-case=tune --json=$(PREFIX)-moderate-heston32.json 
+	futhark bench --backend=opencl OptionPricing.fut --exclude-case=tune --json=$(PREFIX)-moderate-OptionPricing.json
 
 untuned: backprop.fut lavaMD.fut LocVolCalib.fut nn.fut nw.fut pathfinder.fut srad.fut bfast
 	FUTHARK_INCREMENTAL_FLATTENING=1 futhark bench --backend=opencl backprop.fut --exclude-case=tune --json=$(PREFIX)-untuned-backprop.json --skip-compilation
@@ -50,8 +50,8 @@ untuned: backprop.fut lavaMD.fut LocVolCalib.fut nn.fut nw.fut pathfinder.fut sr
 all:
 	make compile
 	make tune_exhaustive
-	make moderate_flattening
 	make untuned
+	make moderate_flattening
 
 .PHONY: clean
 
