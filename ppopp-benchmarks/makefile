@@ -1,5 +1,5 @@
 FLAGS=FUTHARK_INCREMENTAL_FLATTENING=1
-PREFIX=rtx
+PREFIX=gtx
 
 compile: backprop.fut lavaMD.fut LocVolCalib.fut nn.fut nw.fut pathfinder.fut srad.fut heston32.fut OptionPricing.fut bfast.fut
 	$(FLAGS) ~/futhark-0.10/bin/futhark opencl bfast.fut
@@ -13,18 +13,18 @@ compile: backprop.fut lavaMD.fut LocVolCalib.fut nn.fut nw.fut pathfinder.fut sr
 	$(FLAGS) futhark opencl heston32.fut
 	$(FLAGS) futhark opencl OptionPricing.fut
 
-tune_exhaustive: ../exhaustive-auto.py backprop.fut lavaMD.fut LocVolCalib.fut nn.fut nw.fut pathfinder.fut srad.fut heston32.fut OptionPricing.fut bfast
+tune_exhaustive: ../instr-tuner.py backprop.fut lavaMD.fut LocVolCalib.fut nn.fut nw.fut pathfinder.fut srad.fut heston32.fut OptionPricing.fut bfast
 	$(FLAGS) python ../instr-tuner.py backprop.fut lavaMD.fut LocVolCalib.fut nn.fut nw.fut pathfinder.fut srad.fut heston32.fut OptionPricing.fut bfast.fut
-	mv simple-backprop.json $(PREFIX)-simple-backprop.json
-	mv simple-lavaMD.json $(PREFIX)-simple-lavaMD.json
-	mv simple-LocVolCalib.json $(PREFIX)-simple-LocVolCalib.json
-	mv simple-nn.json $(PREFIX)-simple-nn.json
-	mv simple-nw.json $(PREFIX)-simple-nw.json
-	mv simple-pathfinder.json $(PREFIX)-simple-pathfinder.json
-	mv simple-srad.json $(PREFIX)-simple-srad.json
-	mv simple-heston32.json $(PREFIX)-simple-heston32.json
-	mv simple-OptionPricing.json $(PREFIX)-simple-OptionPricing.json
-	mv simple-bfast.json $(PREFIX)-simple-bfast.json
+	mv instr-backprop.json $(PREFIX)-simple-backprop.json
+	mv instr-lavaMD.json $(PREFIX)-simple-lavaMD.json
+	mv instr-LocVolCalib.json $(PREFIX)-simple-LocVolCalib.json
+	mv instr-nn.json $(PREFIX)-simple-nn.json
+	mv instr-nw.json $(PREFIX)-simple-nw.json
+	mv instr-pathfinder.json $(PREFIX)-simple-pathfinder.json
+	mv instr-srad.json $(PREFIX)-simple-srad.json
+	mv instr-heston32.json $(PREFIX)-simple-heston32.json
+	mv instr-OptionPricing.json $(PREFIX)-simple-OptionPricing.json
+	mv instr-bfast.json $(PREFIX)-simple-bfast.json
 
 moderate_flattening: backprop.fut lavaMD.fut LocVolCalib.fut nn.fut nw.fut pathfinder.fut srad.fut bfast.fut
 	futhark bench --backend=opencl backprop.fut --exclude-case=tune --json=$(PREFIX)-moderate-backprop.json
