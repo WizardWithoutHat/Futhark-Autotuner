@@ -1,8 +1,8 @@
 -- LocVolCalib
 -- ==
--- compiled input @ LocVolCalib-data/train-small.in
--- compiled input @ LocVolCalib-data/train-medium.in
--- compiled input @ LocVolCalib-data/train-large.in
+-- tune compiled input @ LocVolCalib-data/train-small.in
+-- tune compiled input @ LocVolCalib-data/train-medium.in
+-- tune compiled input @ LocVolCalib-data/train-large.in
 --
 -- notune compiled input @ LocVolCalib-data/small.in
 -- output @ LocVolCalib-data/small.out
