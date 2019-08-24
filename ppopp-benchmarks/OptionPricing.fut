@@ -1,13 +1,15 @@
 -- Generic pricing
 -- ==
--- compiled input @ OptionPricing-data/train-D1.in
--- compiled input @ OptionPricing-data/train-D2.in
+-- tune compiled input @ OptionPricing-data/train-D1.in
+-- tune compiled input @ OptionPricing-data/train-D2.in
 --
 -- notune compiled input @ OptionPricing-data/D1.in
 -- output @ OptionPricing-data/D1.out
 --
 -- notune compiled input @ OptionPricing-data/D2.in
 -- output @ OptionPricing-data/D2.out
+--
+
 
 let grayCode(x: i32): i32 = (x >> 1) ^ x
 
@@ -42,7 +44,7 @@ let sobolIndR [m][num_bits] (dir_vs: [m][num_bits]i32) (n: i32): [m]f32 =
 let index_of_least_significant_0(x: i32): i32 =
   loop i = 0 while i < 32 && ((x>>i)&1) != 0 do i + 1
 
-let sobolRecI [num_bits][n] (sob_dir_vs: [][num_bits]i32, prev: [n]i32, x: i32): [n]i32 =
+let sobolRecI [num_bits][n] (sob_dir_vs: [n][num_bits]i32, prev: [n]i32, x: i32): [n]i32 =
   let bit = index_of_least_significant_0 x
   in map2 (\vct_row prev -> vct_row[bit] ^ prev) sob_dir_vs prev
 
@@ -50,7 +52,7 @@ let recM [n][num_bits] (sob_dirs:  [n][num_bits]i32, i: i32 ): [n]i32 =
   let bit = index_of_least_significant_0 i
   in map (\row -> unsafe row[bit]) sob_dirs
 
-let sobolRecMap [n] (sob_fact:  f32, dir_vs: [n][]i32, (lb_inc, ub_exc): (i32,i32) ): [][]f32 =
+let sobolRecMap [n][num_bits] (sob_fact:  f32, dir_vs: [n][num_bits]i32, (lb_inc, ub_exc): (i32,i32) ): [][]f32 =
   -- the if inside may be particularly ugly for
   -- flattening since it introduces control flow!
   let contribs = map (\k -> if k==0
@@ -60,15 +62,15 @@ let sobolRecMap [n] (sob_fact:  f32, dir_vs: [n][]i32, (lb_inc, ub_exc): (i32,i3
   let vct_ints = scan (\x y -> map2 (^) x y) (replicate n 0) contribs
   in  map (\xs -> map (\x -> r32 x * sob_fact) xs) vct_ints
 
-let sobolReci2 [n] (sob_dirs: [][]i32, prev: [n]i32, i: i32): [n]i32=
+let sobolReci2 [n][num_bits] (sob_dirs: [n][num_bits]i32, prev: [n]i32, i: i32): [n]i32=
   let col = recM(sob_dirs, i)
   in map2 (^) prev col
 
 -- computes sobol numbers: n,..,n+chunk-1
-let sobolChunk [len][num_bits] (dir_vs: [len][num_bits]i32, n: i32, chunk: i32): [chunk][len]f32 =
+let sobolChunk [len][num_bits] (dir_vs: [len][num_bits]i32) (n: i32) (chunk: i32): [chunk][len]f32 =
   let sob_fact= 1.0 / r32(1 << num_bits)
   let sob_beg = sobolIndI(dir_vs, n+1)
-  let contrbs = map (\(k: i32): []i32  ->
+  let contrbs = map (\(k: i32): [len]i32  ->
                        if k==0 then sob_beg
                        else recM(dir_vs, k+n))
                     (iota chunk)
@@ -184,20 +186,16 @@ let brownianBridgeDates [num_dates]
   let sd = bb_data[0]
   let lw = bb_data[1]
   let rw = bb_data[2]
-
   let bbrow = replicate num_dates 0.0
   let bbrow[ bi[0]-1 ] = sd[0] * gauss[0]
-
   let bbrow = loop bbrow for i in 1...num_dates-1 do
     unsafe
     let j  = li[i] - 1
     let k  = ri[i] - 1
     let l  = bi[i] - 1
-
     let wk = bbrow[k]
     let zi = gauss[i]
     let tmp= rw[i] * wk + sd[i] * zi
-
     let bbrow[ l ] = if j == -1
                      then tmp
                      else tmp + lw[i] * bbrow[j]
@@ -211,11 +209,11 @@ let brownianBridgeDates [num_dates]
        let bbrow[i] = bbrow[i] - bbrow[i-1]
        in  bbrow
 
-let brownianBridge [num_dates]
-                   (num_und: i32,
-                    bb_inds: [3][num_dates]i32,
-                    bb_data: [3][num_dates]f32)
-                   (gaussian_arr: []f32)
+let brownianBridge [num_dates][k]
+                   (num_und: i32)
+                   (bb_inds: [3][num_dates]i32)
+                   (bb_data: [3][num_dates]f32)
+                   (gaussian_arr: [k]f32)
                    : [num_dates][num_und]f32 =
   let gauss2d  = unflatten num_dates num_und gaussian_arr
   let gauss2dT = transpose gauss2d
@@ -232,7 +230,10 @@ let correlateDeltas [num_und][num_dates]
                    : [num_dates][num_und]f32 =
   map (\zi: [num_und]f32  ->
          map (\(j: i32): f32  ->
-                let x = map2 (*) (unsafe take (j+1) zi) (unsafe take (j+1) md_c[j])
+                let jp1 = j+1
+                let x = map2 (*)
+                             (unsafe take (j+1) zi : [jp1]f32)
+                             (unsafe take (j+1) md_c[j] : [jp1]f32)
                 in  f32.sum x)
              (iota num_und))
       zds
@@ -284,16 +285,16 @@ let payoff1(md_disct: []f32, md_detval: []f32, xss: [1][1]f32): f32 =
 
 let payoff2 (md_disc: []f32, xss: [5][3]f32): f32 =
   let (date, amount) =
-    if      1.0 <= fminPayoff(xss[0]) then (0, 1150.0)
-    else if 1.0 <= fminPayoff(xss[1]) then (1, 1300.0)
-    else if 1.0 <= fminPayoff(xss[2]) then (2, 1450.0)
-    else if 1.0 <= fminPayoff(xss[3]) then (3, 1600.0)
-    else let x50  = fminPayoff(xss[4])
-         let value  = if      1.0 <= x50 then 1750.0
-                      else if 0.75 < x50 then 1000.0
-                      else                    x50*1000.0
-         in (4, value)
-         in trajInner(amount, date, md_disc)
+    if 1.0 <= fminPayoff(xss[0]) then (0, 1150.0) else
+    if 1.0 <= fminPayoff(xss[1]) then (1, 1300.0) else
+    if 1.0 <= fminPayoff(xss[2]) then (2, 1450.0) else
+    if 1.0 <= fminPayoff(xss[3]) then (3, 1600.0) else
+    let x50  = fminPayoff(xss[4])
+    let value  = if 1.0 <= x50 then 1750.0
+                 else if 0.75 < x50 then 1000.0
+                 else x50*1000.0
+    in (4, value)
+  in trajInner(amount, date, md_disc)
 
 let payoff3(md_disct: []f32, xss: [367][3]f32): f32 =
   let conds  = map (\x ->
@@ -314,38 +315,35 @@ let payoff3(md_disct: []f32, xss: [367][3]f32): f32 =
 
 
 let genericPayoff(contract: i32) (md_disct: []f32) (md_detval: []f32) (xss: [][]f32): f32 =
-  if      contract == 1 then unsafe payoff1(md_disct, md_detval, xss)
-  else if contract == 2 then unsafe payoff2(md_disct, xss)
-  else if contract == 3 then unsafe payoff3(md_disct, xss)
+  if      contract == 1 then unsafe payoff1(md_disct, md_detval, xss : [1][1]f32)
+  else if contract == 2 then unsafe payoff2(md_disct, xss : [5][3]f32)
+  else if contract == 3 then unsafe payoff3(md_disct, xss : [367][3]f32)
   else 0.0
 
 -- Entry point
-let main [num_bits][num_models][num_und][num_dates]
+let main [k][num_bits][num_models][num_und][num_dates][num_discts]
         (contract_number: i32)
         (num_mc_it: i32)
-        (dir_vs: [][num_bits]i32)
+        (dir_vs: [k][num_bits]i32)
         (md_cs: [num_models][num_und][num_und]f32)
         (md_vols: [num_models][num_dates][num_und]f32)
         (md_drifts: [num_models][num_dates][num_und]f32)
         (md_sts: [num_models][num_und]f32)
-        (md_detvals: [num_models][]f32)
-        (md_discts: [num_models][]f32)
+        (md_detvals: [num_models][1]f32)
+        (md_discts: [num_models][num_discts]f32)
         (bb_inds: [3][num_dates]i32)
         (bb_data: [3][num_dates]f32)
          : []f32 =
   let sobvctsz  = num_dates*num_und
-  let sobol_mat = stream_map (\[chunk] (ns: [chunk]i32): [chunk][sobvctsz]f32  ->
-                               sobolChunk(dir_vs, unsafe ns[0], chunk))
+  let dir_vs = dir_vs : [sobvctsz][num_bits]i32
+  let sobol_mat = stream_map (\chunk (ns: [chunk]i32): [chunk][sobvctsz]f32  ->
+                                sobolChunk dir_vs (unsafe ns[0]) chunk)
                              (iota num_mc_it)
-
   let gauss_mat = map ugaussian sobol_mat
-
-  let bb_mat    = map (brownianBridge(num_und, bb_inds, bb_data)) gauss_mat
-
+  let bb_mat    = map (brownianBridge num_und bb_inds bb_data) gauss_mat
   let payoffs   = map (\bb_row: [num_models]f32  ->
                          let bd_row = map4 (blackScholes bb_row) md_cs md_vols md_drifts md_sts
                          in map3 (genericPayoff contract_number) md_discts md_detvals bd_row)
                       bb_mat
-
   let payoff    = reduce (map2 (+)) (replicate num_models 0.0) payoffs
   in  map (/r32 num_mc_it) payoff
