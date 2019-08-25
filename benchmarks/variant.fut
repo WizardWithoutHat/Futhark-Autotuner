@@ -1,17 +1,17 @@
 -- ==
--- notune compiled input @ data/variant-data/2048.in
+-- tune compiled input @ data/variant-data/2048.in
 -- output @ data/variant-data/2048.out
--- tune compiled input @ data/variant-data/1024.in
+-- notune compiled input @ data/variant-data/1024.in
 -- output @ data/variant-data/1024.out
--- notune compiled input @ data/variant-data/512.in
+-- tune compiled input @ data/variant-data/512.in
 -- output @ data/variant-data/512.out
--- tune compiled input @ data/variant-data/256.in
+-- notune compiled input @ data/variant-data/256.in
 -- output @ data/variant-data/256.out
--- notune compiled input @ data/variant-data/128.in
+-- tune compiled input @ data/variant-data/128.in
 -- output @ data/variant-data/128.out
--- tune compiled input @ data/variant-data/32.in
+-- notune compiled input @ data/variant-data/32.in
 -- output @ data/variant-data/32.out
--- notune compiled input @ data/variant-data/16.in
+-- tune compiled input @ data/variant-data/16.in
 -- output @ data/variant-data/16.out
 
 

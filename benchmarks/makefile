@@ -1,7 +1,7 @@
 FUTHARK=futhark
 BACKEND=opencl
 FLAGS=FUTHARK_INCREMENTAL_FLATTENING=1
-PREFIX=gtx
+PREFIX=rtx
 
 variant_datasets: variant.fut
 	futhark dataset -b --g [16][16]f32 --g [16][16]f32 > data/variant-data/16.in
@@ -83,6 +83,55 @@ run_loop_instr: ../instr-tuner.py lud-clean.fut variant.fut
 	$(FLAGS) python ../instr-tuner.py lud-clean.fut variant.fut > $(PREFIX)-INSTR3
 	mv instr-lud-clean.json $(PREFIX)-instr-lud-clean3.json
 	mv instr-variant.json $(PREFIX)-instr-variant3.json
+
+
+
+run_loop_cma_V: ../cma-branch-auto.py lud-clean.fut variant.fut 
+	$(FLAGS) python ../cma-branch-auto.py variant.fut > $(PREFIX)-CMA1
+	mv cma-variant.json $(PREFIX)-cma-variant1.json
+	$(FLAGS) python ../cma-branch-auto.py variant.fut > $(PREFIX)-CMA2
+	mv cma-variant.json $(PREFIX)-cma-variant2.json
+	$(FLAGS) python ../cma-branch-auto.py variant.fut > $(PREFIX)-CMA3
+	mv cma-variant.json $(PREFIX)-cma-variant3.json
+
+run_loop_cmaindex_V: ../cma-branch-auto-index.py lud-clean.fut variant.fut 
+	$(FLAGS) python ../cma-branch-auto-index.py variant.fut > $(PREFIX)-CMAINDEX1
+	mv cmaindex-variant.json $(PREFIX)-cmaindex-variant1.json
+	$(FLAGS) python ../cma-branch-auto-index.py variant.fut > $(PREFIX)-CMAINDEX2
+	mv cmaindex-variant.json $(PREFIX)-cmaindex-variant2.json
+	$(FLAGS) python ../cma-branch-auto-index.py variant.fut > $(PREFIX)-CMAINDEX3
+	mv cmaindex-variant.json $(PREFIX)-cmaindex-variant3.json
+
+run_loop_binary_V: ../binary-tuner.py lud-clean.fut variant.fut 
+	$(FLAGS) python ../binary-tuner.py variant.fut > $(PREFIX)-BINARY1
+	mv binary-variant.json $(PREFIX)-binary-variant1.json
+	$(FLAGS) python ../binary-tuner.py variant.fut > $(PREFIX)-BINARY2
+	mv binary-variant.json $(PREFIX)-binary-variant2.json
+	$(FLAGS) python ../binary-tuner.py variant.fut > $(PREFIX)-BINARY3
+	mv binary-variant.json $(PREFIX)-binary-variant3.json
+
+run_loop_active_V: ../active-tuner.py lud-clean.fut variant.fut 
+	$(FLAGS) python ../active-tuner.py variant.fut > $(PREFIX)-ACTIVE1
+	mv active-variant.json $(PREFIX)-active-variant1.json
+	$(FLAGS) python ../active-tuner.py variant.fut > $(PREFIX)-ACTIVE2
+	mv active-variant.json $(PREFIX)-active-variant2.json
+	$(FLAGS) python ../active-tuner.py variant.fut > $(PREFIX)-ACTIVE3
+	mv active-variant.json $(PREFIX)-active-variant3.json
+
+run_loop_instr_V: ../instr-tuner.py lud-clean.fut variant.fut 
+	$(FLAGS) python ../instr-tuner.py variant.fut > $(PREFIX)-INSTR1
+	mv instr-variant.json $(PREFIX)-instr-variant1.json
+	$(FLAGS) python ../instr-tuner.py variant.fut > $(PREFIX)-INSTR2
+	mv instr-variant.json $(PREFIX)-instr-variant2.json
+	$(FLAGS) python ../instr-tuner.py variant.fut > $(PREFIX)-INSTR3
+	mv instr-variant.json $(PREFIX)-instr-variant3.json
+
+all_V:
+	make run_loop_cma_V
+	make run_loop_cmaindex_V
+	make run_loop_binary_V
+	make run_loop_active_V
+	make run_loop_instr_V
 
 all:
 	make run_loop_cma
