@@ -9,18 +9,11 @@
 -- output @ data/variant-data/256.out
 -- tune compiled input @ data/variant-data/128.in
 -- output @ data/variant-data/128.out
--- notune compiled input @ data/variant-data/32.in
+-- notune compiled input @ data/variant-data/64.in
+-- output @ data/variant-data/64.out
+-- tune compiled input @ data/variant-data/32.in
 -- output @ data/variant-data/32.out
--- tune compiled input @ data/variant-data/16.in
--- output @ data/variant-data/16.out
 
-
-let main1 [n][m] (A : [n][m] i32)  =
-    let res = loop _ = [] for i in (map (+1) (iota n)) do
-        let a = A[0:i,0:i]
-        let b = map (\row -> reduce (+) 0 row) a
-        in b
-    in res
 
 let lg (n: i32) =
     let r = 0
