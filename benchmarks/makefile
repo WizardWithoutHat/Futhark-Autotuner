@@ -87,43 +87,43 @@ run_loop_instr: ../instr-tuner.py lud-clean.fut variant.fut
 
 
 run_loop_cma_V: ../cma-branch-auto.py lud-clean.fut variant.fut 
-	$(FLAGS) python ../cma-branch-auto.py variant.fut > $(PREFIX)-CMA1
+	$(FLAGS) python ../cma-branch-auto.py variant.fut > $(PREFIX)-CMA1-V
 	mv cma-variant.json $(PREFIX)-cma-variant1.json
-	$(FLAGS) python ../cma-branch-auto.py variant.fut > $(PREFIX)-CMA2
+	$(FLAGS) python ../cma-branch-auto.py variant.fut > $(PREFIX)-CMA2-V
 	mv cma-variant.json $(PREFIX)-cma-variant2.json
-	$(FLAGS) python ../cma-branch-auto.py variant.fut > $(PREFIX)-CMA3
+	$(FLAGS) python ../cma-branch-auto.py variant.fut > $(PREFIX)-CMA3-V
 	mv cma-variant.json $(PREFIX)-cma-variant3.json
 
 run_loop_cmaindex_V: ../cma-branch-auto-index.py lud-clean.fut variant.fut 
-	$(FLAGS) python ../cma-branch-auto-index.py variant.fut > $(PREFIX)-CMAINDEX1
+	$(FLAGS) python ../cma-branch-auto-index.py variant.fut > $(PREFIX)-CMAINDEX1-V
 	mv cmaindex-variant.json $(PREFIX)-cmaindex-variant1.json
-	$(FLAGS) python ../cma-branch-auto-index.py variant.fut > $(PREFIX)-CMAINDEX2
+	$(FLAGS) python ../cma-branch-auto-index.py variant.fut > $(PREFIX)-CMAINDEX2-V
 	mv cmaindex-variant.json $(PREFIX)-cmaindex-variant2.json
-	$(FLAGS) python ../cma-branch-auto-index.py variant.fut > $(PREFIX)-CMAINDEX3
+	$(FLAGS) python ../cma-branch-auto-index.py variant.fut > $(PREFIX)-CMAINDEX3-V
 	mv cmaindex-variant.json $(PREFIX)-cmaindex-variant3.json
 
 run_loop_binary_V: ../binary-tuner.py lud-clean.fut variant.fut 
-	$(FLAGS) python ../binary-tuner.py variant.fut > $(PREFIX)-BINARY1
+	$(FLAGS) python ../binary-tuner.py variant.fut > $(PREFIX)-BINARY1-V
 	mv binary-variant.json $(PREFIX)-binary-variant1.json
-	$(FLAGS) python ../binary-tuner.py variant.fut > $(PREFIX)-BINARY2
+	$(FLAGS) python ../binary-tuner.py variant.fut > $(PREFIX)-BINARY2-V
 	mv binary-variant.json $(PREFIX)-binary-variant2.json
-	$(FLAGS) python ../binary-tuner.py variant.fut > $(PREFIX)-BINARY3
+	$(FLAGS) python ../binary-tuner.py variant.fut > $(PREFIX)-BINARY3-V
 	mv binary-variant.json $(PREFIX)-binary-variant3.json
 
 run_loop_active_V: ../active-tuner.py lud-clean.fut variant.fut 
-	$(FLAGS) python ../active-tuner.py variant.fut > $(PREFIX)-ACTIVE1
+	$(FLAGS) python ../active-tuner.py variant.fut > $(PREFIX)-ACTIVE1-V
 	mv active-variant.json $(PREFIX)-active-variant1.json
-	$(FLAGS) python ../active-tuner.py variant.fut > $(PREFIX)-ACTIVE2
+	$(FLAGS) python ../active-tuner.py variant.fut > $(PREFIX)-ACTIVE2-V
 	mv active-variant.json $(PREFIX)-active-variant2.json
-	$(FLAGS) python ../active-tuner.py variant.fut > $(PREFIX)-ACTIVE3
+	$(FLAGS) python ../active-tuner.py variant.fut > $(PREFIX)-ACTIVE3-V
 	mv active-variant.json $(PREFIX)-active-variant3.json
 
 run_loop_instr_V: ../instr-tuner.py lud-clean.fut variant.fut 
-	$(FLAGS) python ../instr-tuner.py variant.fut > $(PREFIX)-INSTR1
+	$(FLAGS) python ../instr-tuner.py variant.fut > $(PREFIX)-INSTR1-V
 	mv instr-variant.json $(PREFIX)-instr-variant1.json
-	$(FLAGS) python ../instr-tuner.py variant.fut > $(PREFIX)-INSTR2
+	$(FLAGS) python ../instr-tuner.py variant.fut > $(PREFIX)-INSTR2-V
 	mv instr-variant.json $(PREFIX)-instr-variant2.json
-	$(FLAGS) python ../instr-tuner.py variant.fut > $(PREFIX)-INSTR3
+	$(FLAGS) python ../instr-tuner.py variant.fut > $(PREFIX)-INSTR3-V
 	mv instr-variant.json $(PREFIX)-instr-variant3.json
 
 all_V:
