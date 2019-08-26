@@ -695,21 +695,20 @@ for program in programs:
 
         dataset_runtimes = []
         for dataset in base_datasets:
-            try:
-                dataset_runtimes.append(sum(base_datasets[dataset]['runtimes']) / 1000000.0)
-                runtime = int(np.mean(base_datasets[dataset]['runtimes']))
-                best_times[dataset] = runtime
-                best_versions[dataset] = conf
-                execution_cache[compute_execution_path(conf)][dataset] = runtime
+            dataset_runtimes.append(sum(base_datasets[dataset]['runtimes']) / 1000000.0)
+            runtime = int(np.mean(base_datasets[dataset]['runtimes']))
+            best_times[dataset] = runtime
+            best_versions[dataset] = conf
+            execution_cache[compute_execution_path(conf)][dataset] = runtime
 
-                baseline_times[dataset] = runtime
+            baseline_times[dataset] = runtime
 
-            except:
-                dataset_runtimes.append(np.inf)
-                best_times[dataset] = np.inf
-                best_versions[dataset] = conf
-                execution_cache[compute_execution_path(conf)][dataset] = np.inf
-                baseline_times[dataset] = 1000000
+            #except:
+             #   dataset_runtimes.append(np.inf)
+              #  best_times[dataset] = np.inf
+              #  best_versions[dataset] = conf
+              #  execution_cache[compute_execution_path(conf)][dataset] = np.inf
+              #  baseline_times[dataset] = 1000000
 
         overhead = (wall_duration - (sum(dataset_runtimes) / len(dataset_runtimes))) + 1
         print("Overhead: {}".format(overhead))
@@ -796,7 +795,7 @@ for program in programs:
 
             # With a temporary JSON file, run the benchmarking for this version.
             with tempfile.NamedTemporaryFile() as json_tmp:
-                bench_cmd = futhark_bench_cmd(conf, json_tmp, best_times, None)
+                bench_cmd = futhark_bench_cmd(conf, json_tmp, None, None)
 
                 num_executed += 1
                 call_program(bench_cmd)
@@ -813,27 +812,28 @@ for program in programs:
 
                 # Record every dataset's runtime, and store it.
                 for dataset in results:
-                    try:
-                        runtime = int(np.mean(results[dataset]['runtimes']))
+                    #try:
+		    print(bench_cmd)
+                    runtime = int(np.mean(results[dataset]['runtimes']))
                         #print("I didn't time out!")
-                        execution_cache[path][dataset] = runtime
+                    execution_cache[path][dataset] = runtime
 
                         #print("Dataset {} ran in {}, compared to base {}".format(dataset, runtime, baseline_times[dataset]))
 
-                        total_time +=  runtime / float(baseline_times[dataset] * 100)
+                    total_time +=  runtime / float(baseline_times[dataset] * 100)
 
-                        if runtime < best_times[dataset]:
-                            print("Considered new best for dataset {} at {}".format(dataset, runtime))
-                            best_times[dataset] = runtime
-                            best_versions[dataset] = conf
+                    if runtime < best_times[dataset]:
+                        print("Considered new best for dataset {} at {}".format(dataset, runtime))
+                        best_times[dataset] = runtime
+                        best_versions[dataset] = conf
 
-                        if runtime < best_branch_time[dataset]:
-                            best_branch_time[dataset] = runtime
-                            best_branch_version[dataset] = current_version
-                    except:
-                        #It timed out on this dataset, or produced wrong results
-                        print("Timed out / failed on dataset {}".format(dataset))
-                        total_time += np.inf
+                    if runtime < best_branch_time[dataset]:
+                        best_branch_time[dataset] = runtime
+                        best_branch_version[dataset] = current_version
+                    #except:
+                    #    #It timed out on this dataset, or produced wrong results
+                    #    print("Timed out / failed on dataset {}".format(dataset))
+                    #    total_time += np.inf
 
         print("Finished branch-run, trying to merge ranges.")
         # Modify the base version to use the new "better" version.
@@ -943,7 +943,7 @@ for program in programs:
                         execution_cache[path] = {}
 
                     with tempfile.NamedTemporaryFile() as json_tmp:
-                        bench_cmd = futhark_bench_cmd(conf, json_tmp, best_times, None)
+                        bench_cmd = futhark_bench_cmd(conf, json_tmp, None, None)
 
                         num_executed += 1
                         call_program(bench_cmd)
