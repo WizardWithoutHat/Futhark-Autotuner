@@ -514,12 +514,14 @@ def futhark_autotune_program(program):
 
     # Compile the target program.
     #program = sys.argv[1]
-    compile_cmd = 'futhark opencl {}'.format(program)
-    print('Compiling {}... '.format(program), end='')
-    sys.stdout.flush()
-    compile_res = call_program(compile_cmd)
-    print('Done.')
-
+    if not program in ["variant.fut", "bfast.fut"]:
+        compile_cmd = 'futhark opencl {}'.format(program)
+        print('Compiling {}... '.format(program), end='')
+        sys.stdout.flush()
+        compile_res = call_program(compile_cmd)
+        print('Done.')
+    else:
+        print("SKIPPING COMPILATION! Compile manually")
     # Run the above function to find:
     # Names of all datasets and thresholds.
     # Values of all threshold comparisons.

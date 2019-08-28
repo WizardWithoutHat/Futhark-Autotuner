@@ -530,7 +530,7 @@ for program in programs:
     num_executed = 0
 
     # Compile the target program.
-    if program == "bfast.fut":
+    if program in ["variant.fut", "bfast.fut"]:
 	print("SKIPPING COMPILATION DUE TO BEING BFAST! Has to be compiled with older futhark version, sorry...")
     else: 
 	compile_cmd = 'futhark opencl {}'.format(program)

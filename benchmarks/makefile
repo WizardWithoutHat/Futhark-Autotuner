@@ -111,7 +111,11 @@ run_loop_instr_V: ../instr-tuner.py lud-clean.fut variant.fut
 	$(FLAGS) python ../instr-tuner.py variant.fut | tee $(PREFIX)-INSTR3-V
 	mv instr-variant.json $(PREFIX)-instr-variant3.json
 
-all_V:
+compile: variant.fut
+	$(FLAGS) ~/futhark-0.10/bin/futhark opencl variant.fut
+
+all_V:	
+	make compile
 	make run_loop_cma_V
 	make run_loop_cmaindex_V
 	make run_loop_binary_V
