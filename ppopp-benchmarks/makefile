@@ -26,6 +26,19 @@ tune_exhaustive: ../instr-tuner.py backprop.fut lavaMD.fut LocVolCalib.fut nn.fu
 	mv instr-OptionPricing.json $(PREFIX)-simple-OptionPricing.json
 	mv instr-bfast.json $(PREFIX)-simple-bfast.json
 
+reference: ../instr-tuner.py backprop.fut lavaMD.fut LocVolCalib.fut nn.fut nw.fut pathfinder.fut srad.fut heston32.fut OptionPricing.fut bfast
+	$(FLAGS) python ../instr-tuner.py backprop.fut lavaMD.fut LocVolCalib.fut nn.fut nw.fut pathfinder.fut srad.fut heston32.fut OptionPricing.fut bfast.fut
+	mv instr-backprop.json $(PREFIX)-reference-backprop.json
+	mv instr-lavaMD.json $(PREFIX)-reference-lavaMD.json
+	mv instr-LocVolCalib.json $(PREFIX)-reference-LocVolCalib.json
+	mv instr-nn.json $(PREFIX)-reference-nn.json
+	mv instr-nw.json $(PREFIX)-reference-nw.json
+	mv instr-pathfinder.json $(PREFIX)-reference-pathfinder.json
+	mv instr-srad.json $(PREFIX)-reference-srad.json
+	mv instr-heston32.json $(PREFIX)-reference-heston32.json
+	mv instr-OptionPricing.json $(PREFIX)-reference-OptionPricing.json
+	mv instr-bfast.json $(PREFIX)-reference-bfast.json
+
 moderate_flattening: backprop.fut lavaMD.fut LocVolCalib.fut nn.fut nw.fut pathfinder.fut srad.fut bfast.fut
 	futhark bench --backend=opencl backprop.fut --exclude-case=tune --json=$(PREFIX)-moderate-backprop.json
 	futhark bench --backend=opencl lavaMD.fut --exclude-case=tune --json=$(PREFIX)-moderate-lavaMD.json
