@@ -530,14 +530,11 @@ for program in programs:
     num_executed = 0
 
     # Compile the target program.
-    if program in ["variant.fut", "bfast.fut"]:
-	print("SKIPPING COMPILATION DUE TO BEING BFAST! Has to be compiled with older futhark version, sorry...")
-    else: 
 	compile_cmd = 'futhark opencl {}'.format(program)
-    	print('Compiling {}... '.format(program), end='')
-    	sys.stdout.flush()
-    	compile_res = call_program(compile_cmd)
-    	print('Done.')
+    print('Compiling {}... '.format(program), end='')
+    sys.stdout.flush()
+    compile_res = call_program(compile_cmd)
+    print('Done.')
 
     # Run the above function to find:
     # Names of all datasets and thresholds.
@@ -695,20 +692,21 @@ for program in programs:
 
         dataset_runtimes = []
         for dataset in base_datasets:
-            dataset_runtimes.append(sum(base_datasets[dataset]['runtimes']) / 1000000.0)
-            runtime = int(np.mean(base_datasets[dataset]['runtimes']))
-            best_times[dataset] = runtime
-            best_versions[dataset] = conf
-            execution_cache[compute_execution_path(conf)][dataset] = runtime
+            try:
+                dataset_runtimes.append(sum(base_datasets[dataset]['runtimes']) / 1000000.0)
+                runtime = int(np.mean(base_datasets[dataset]['runtimes']))
+                best_times[dataset] = runtime
+                best_versions[dataset] = conf
+                execution_cache[compute_execution_path(conf)][dataset] = runtime
 
-            baseline_times[dataset] = runtime
+                baseline_times[dataset] = runtime
 
-            #except:
-             #   dataset_runtimes.append(np.inf)
-              #  best_times[dataset] = np.inf
-              #  best_versions[dataset] = conf
-              #  execution_cache[compute_execution_path(conf)][dataset] = np.inf
-              #  baseline_times[dataset] = 1000000
+            except:
+                dataset_runtimes.append(np.inf)
+                best_times[dataset] = np.inf
+                best_versions[dataset] = conf
+                execution_cache[compute_execution_path(conf)][dataset] = np.inf
+                baseline_times[dataset] = 1000000
 
         overhead = (wall_duration - (sum(dataset_runtimes) / len(dataset_runtimes))) + 1
         print("Overhead: {}".format(overhead))
@@ -812,28 +810,24 @@ for program in programs:
 
                 # Record every dataset's runtime, and store it.
                 for dataset in results:
-                    #try:
-		    print(bench_cmd)
-                    runtime = int(np.mean(results[dataset]['runtimes']))
-                        #print("I didn't time out!")
-                    execution_cache[path][dataset] = runtime
+                    try:
+                        runtime = int(np.mean(results[dataset]['runtimes']))
+                        execution_cache[path][dataset] = runtime
 
-                        #print("Dataset {} ran in {}, compared to base {}".format(dataset, runtime, baseline_times[dataset]))
+                        total_time +=  runtime / float(baseline_times[dataset] * 100)
 
-                    total_time +=  runtime / float(baseline_times[dataset] * 100)
+                        if runtime < best_times[dataset]:
+                            print("Considered new best for dataset {} at {}".format(dataset, runtime))
+                            best_times[dataset] = runtime
+                            best_versions[dataset] = conf
 
-                    if runtime < best_times[dataset]:
-                        print("Considered new best for dataset {} at {}".format(dataset, runtime))
-                        best_times[dataset] = runtime
-                        best_versions[dataset] = conf
-
-                    if runtime < best_branch_time[dataset]:
-                        best_branch_time[dataset] = runtime
-                        best_branch_version[dataset] = current_version
-                    #except:
-                    #    #It timed out on this dataset, or produced wrong results
-                    #    print("Timed out / failed on dataset {}".format(dataset))
-                    #    total_time += np.inf
+                        if runtime < best_branch_time[dataset]:
+                            best_branch_time[dataset] = runtime
+                            best_branch_version[dataset] = current_version
+                    except:
+                        #It timed out on this dataset, or produced wrong results
+                        print("Timed out / failed on dataset {}".format(dataset))
+                        total_time += np.inf
 
         print("Finished branch-run, trying to merge ranges.")
         # Modify the base version to use the new "better" version.
@@ -1081,8 +1075,7 @@ for program in programs:
                     iterF = []
                     conf[name] = 999999999999999999999
                     path = compute_execution_path(conf) + 'Exp'
-                    print(path)
-
+                    
                     with tempfile.NamedTemporaryFile() as json_tmp: 
                         if path in execution_cache:
                             results = execution_cache[path]
@@ -1122,7 +1115,6 @@ for program in programs:
                     iterT = []
                     conf[name] = 1
                     path = compute_execution_path(conf) + 'Exp'
-                    print(path)
                     with tempfile.NamedTemporaryFile() as json_tmp:
                         if path in execution_cache:
                             results = execution_cache[path]
@@ -1217,11 +1209,11 @@ for program in programs:
                             cumTrue  = sum([sum(runtimes[:i]) for runtimes in runtimesT])
                             cumFalse = sum([sum(runtimes[i:]) for runtimes in runtimesF])
                             total = cumTrue + cumFalse
-                            print("Iteration {} with E_Par {}: Cumulative True {} plus Cumulative False {} with total {}".format(i, iterT[0][i][0], cumTrue, cumFalse, total))
+                            #print("Iteration {} with E_Par {}: Cumulative True {} plus Cumulative False {} with total {}".format(i, iterT[0][i][0], cumTrue, cumFalse, total))
                             res.append(total)
                         except:
                             total = sum([sum(runtimes) for runtimes in runtimesT])
-                            print("Iteration {} with E_Par {}: Cumulative True {} plus Cumulative False {} with total {}".format(i, "0", total, 0, total))
+                            #print("Iteration {} with E_Par {}: Cumulative True {} plus Cumulative False {} with total {}".format(i, "0", total, 0, total))
                             res.append(total)
             
                     if np.argmin(res) - 1 < 0:

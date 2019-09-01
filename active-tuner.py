@@ -1149,7 +1149,6 @@ for program in programs:
                     candidate = np.argmin(predictions)
                     old_candidate = -2
                     while old_candidate != candidate:
-                        print(predictions)
                         print("Predicted: {} with f({}) = {}".format(candidate, candidate, predictions[candidate]))
                         old_candidate = candidate
 
@@ -1425,35 +1424,3 @@ for i, program in enumerate(programs):
     (time_taken, bench_cmd, num_executed) = script_results[i]
     call_program(bench_cmd.replace(' --exclude-case=notune ', ' --exclude-case=tune ') + ' --json=active-{}.json'.format(program[:-4]))
 
-
-
-"""
-#===============#
-# NOTES SECTION #
-#===============#
-
-
-#===========#
-# TILE SIZE #
-#===========#
-
-#======#
-# SRAD #
-#======#
-
-#=============#
-# LocVolCalib #
-#=============#
-
-#=======#
-# BFAST #
-#=======#
-
-#=====#
-# LUD #
-#=====#
-
-#======================#
-# VARIANT-SIZE TESTING #
-#======================#
- """

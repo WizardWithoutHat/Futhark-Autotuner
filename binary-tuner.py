@@ -1426,35 +1426,3 @@ for i, program in enumerate(programs):
     (time_taken, bench_cmd, num_executed) = script_results[i]
     call_program(bench_cmd.replace(' --exclude-case=notune ', ' --exclude-case=tune ') + ' --json=binary-{}.json'.format(program[:-4]))
 
-
-
-"""
-#===============#
-# NOTES SECTION #
-#===============#
-
-
-#===========#
-# TILE SIZE #
-#===========#
-
-#======#
-# SRAD #
-#======#
-
-#=============#
-# LocVolCalib #
-#=============#
-
-#=======#
-# BFAST #
-#=======#
-
-#=====#
-# LUD #
-#=====#
-
-#======================#
-# VARIANT-SIZE TESTING #
-#======================#
- """
