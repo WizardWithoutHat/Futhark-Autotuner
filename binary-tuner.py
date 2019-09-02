@@ -543,14 +543,11 @@ for program in programs:
     num_executed = 0
 
     # Compile the target program.
-    if program in ["variant.fut", "bfast.fut"]:
-        print("SKIPPING! compile manually")
-    else:
-        compile_cmd = 'futhark opencl {}'.format(program)
-        print('Compiling {}... '.format(program), end='')
-        sys.stdout.flush()
-        compile_res = call_program(compile_cmd)
-        print('Done.')
+    compile_cmd = 'futhark opencl {}'.format(program)
+    print('Compiling {}... '.format(program), end='')
+    sys.stdout.flush()
+    compile_res = call_program(compile_cmd)
+    print('Done.')
 
     # Run the above function to find:
     # Names of all datasets and thresholds.
